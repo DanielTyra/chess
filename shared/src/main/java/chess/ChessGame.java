@@ -60,15 +60,6 @@ public class ChessGame {
     }
 
 
-    @Override
-    public int hashCode() {
-        return super.hashCode();
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-        return super.equals(obj);
-    }
 
     /**
      * Determines if the given team is in check
