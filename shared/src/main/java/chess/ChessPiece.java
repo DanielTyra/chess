@@ -91,8 +91,26 @@ public class ChessPiece {
                     c+=direction[1];
                 }
             }
-
-
+        } else if (piece.getPieceType() == PieceType.ROOK){
+            int[][] directions = {{1,0}, {-1,0}, {0,1}, {0,-1}}; //all directions rook can move to
+            for (int[]direction: directions) { //loop through each direction
+                int r = myPosition.getRow() + direction[0];
+                int c = myPosition.getColumn() + direction[1];
+                while (r >= 1 && r <= 8 && c >= 1 && c <=8) {
+                    ChessPosition targetPosition = new ChessPosition(r, c);
+                    ChessPiece targetPiece = board.getPiece(targetPosition);
+                    if (targetPiece == null) { //if there is no piece on square add to possible moves
+                        moves.add(new ChessMove(myPosition, targetPosition, null));
+                    } else if (targetPiece.getTeamColor() != pieceColor) { //if there is an enemy on square add to possible moves but stop extra movement past
+                        moves.add(new ChessMove(myPosition, targetPosition, null));
+                        break;
+                    } else if (targetPiece.getTeamColor() == pieceColor) { //if there's a teammate on square stop movement in direction
+                        break;
+                    }
+                    r+=direction[0];
+                    c+=direction[1];
+                }
+            }
         }
 
 
