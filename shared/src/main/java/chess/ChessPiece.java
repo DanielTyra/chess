@@ -124,7 +124,7 @@ public class ChessPiece {
                     } else if (targetPiece.getTeamColor() != pieceColor) { //if there is an enemy on square add to possible moves but stop extra movement past
                         moves.add(new ChessMove(myPosition, targetPosition, null));
                         break;
-                    } else if (targetPiece.getTeamColor() == pieceColor) { //if there's a teammate on square stop movement in direction
+                    } else if (targetPiece.getTeamColor() == pieceColor) { //if there is a teammate on square stop movement in direction
                         break;
                     }
                     r+=direction[0];
