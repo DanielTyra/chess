@@ -53,7 +53,77 @@ public class ChessGame {
      * startPosition
      */
     public Collection<ChessMove> validMoves(ChessPosition startPosition) {
-        throw new RuntimeException("Not implemented");
+        ChessPiece piece = board.getPiece(startPosition);
+
+        if (piece == null) {
+            return null;
+        }
+
+        Collection<ChessMove> pseudoMoves = piece.pieceMoves(board, startPosition);
+        java.util.Collection<ChessMove> legalMoves = new java.util.ArrayList<>();
+
+        for (ChessMove move : pseudoMoves) {
+
+            ChessBoard copy = new ChessBoard();
+            for (int r = 1; r <= 8; r++) {
+                for (int c = 1; c <= 8; c++) {
+                    ChessPosition pos = new ChessPosition(r, c);
+                    copy.addPiece(pos, board.getPiece(pos));
+                }
+            }
+
+            ChessPiece moving = copy.getPiece(move.getStartPosition());
+            copy.addPiece(move.getStartPosition(), null);
+
+            if (move.getPromotionPiece() != null) {
+                copy.addPiece(move.getEndPosition(),
+                        new ChessPiece(moving.getTeamColor(), move.getPromotionPiece()));
+            } else {
+                copy.addPiece(move.getEndPosition(), moving);
+            }
+
+            boolean leavesKingInCheck = false;
+
+            // Find our king on the copied board
+            ChessPosition kingPosition = null;
+            for (int r = 1; r <= 8; r++) {
+                for (int c = 1; c <= 8; c++) {
+                    ChessPosition pos = new ChessPosition(r, c);
+                    ChessPiece p = copy.getPiece(pos);
+                    if (p != null &&
+                            p.getTeamColor() == piece.getTeamColor() &&
+                            p.getPieceType() == ChessPiece.PieceType.KING) {
+                        kingPosition = pos;
+                    }
+                }
+            }
+
+            // If king exists, see if enemy attacks it
+            if (kingPosition != null) {
+                TeamColor enemy = (piece.getTeamColor() == TeamColor.WHITE) ? TeamColor.BLACK : TeamColor.WHITE;
+
+                for (int r = 1; r <= 8 && !leavesKingInCheck; r++) {
+                    for (int c = 1; c <= 8 && !leavesKingInCheck; c++) {
+                        ChessPosition pos = new ChessPosition(r, c);
+                        ChessPiece enemyPiece = copy.getPiece(pos);
+                        if (enemyPiece != null && enemyPiece.getTeamColor() == enemy) {
+                            for (ChessMove enemyMove : enemyPiece.pieceMoves(copy, pos)) {
+                                if (enemyMove.getEndPosition().equals(kingPosition)) {
+                                    leavesKingInCheck = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (!leavesKingInCheck) {
+                legalMoves.add(move);
+            }
+        }
+
+        return legalMoves;
     }
 
     /**
@@ -77,7 +147,7 @@ public class ChessGame {
     public boolean isInCheck(TeamColor teamColor) {
         ChessPosition kingPosition = null;
 
-        for (int r = 1; r <= 8; r++){
+        for (int r = 1; r <= 8; r++){ //finding the king's position on the board
             for (int c = 1; c <= 8; c++){
                 ChessPosition position = new ChessPosition(r, c);
                 ChessPiece piece = board.getPiece(position);
@@ -90,7 +160,7 @@ public class ChessGame {
 
         if (kingPosition == null) return false;
 
-        TeamColor enemy = (teamColor == TeamColor.WHITE) ? TeamColor.BLACK : TeamColor.WHITE;
+        TeamColor enemy = (teamColor == TeamColor.WHITE) ? TeamColor.BLACK : TeamColor.WHITE; //declares the enemy color as the opposite of the king
 
         for (int r = 1; r <= 8; r++) {
             for (int c = 1; c <= 8; c++) {
