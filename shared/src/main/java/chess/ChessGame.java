@@ -243,7 +243,6 @@ public class ChessGame {
     }
 
     private void addCastlingMoves(List<ChessMove> moves, ChessPosition kingPos, TeamColor kingColor) {
-        // must be on starting square and king must not have moved
         if (kingColor == TeamColor.WHITE) {
             if (!(kingPos.getRow() == 1 && kingPos.getColumn() == 5)) return;
             if (whiteKingMoved) return;
@@ -252,13 +251,11 @@ public class ChessGame {
             if (blackKingMoved) return;
         }
 
-        // cannot castle out of check
         if (isInCheck(kingColor)) return;
 
         int row = kingPos.getRow();
         TeamColor enemy = opposite(kingColor);
 
-        // kingside: rook at h, squares f/g empty, and f/g not attacked
         if (canCastleKingside(row, kingColor)) {
             ChessPosition f = new ChessPosition(row, 6);
             ChessPosition g = new ChessPosition(row, 7);
@@ -267,7 +264,6 @@ public class ChessGame {
             }
         }
 
-        // queenside: rook at a, squares b/c/d empty, and d/c not attacked
         if (canCastleQueenside(row, kingColor)) {
             ChessPosition d = new ChessPosition(row, 4);
             ChessPosition c = new ChessPosition(row, 3);
