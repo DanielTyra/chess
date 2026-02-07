@@ -2,6 +2,7 @@ package chess;
 
 import java.util.Collection;
 import java.util.Objects;
+import java.util.ArrayList;
 
 /**
  * For a class that can manage a chess game, making moves on a board
@@ -74,7 +75,38 @@ public class ChessGame {
      * @return True if the specified team is in check
      */
     public boolean isInCheck(TeamColor teamColor) {
-        throw new RuntimeException("Not implemented");
+        ChessPosition kingPosition = null;
+
+        for (int r = 1; r <= 8; r++){
+            for (int c = 1; c <= 8; c++){
+                ChessPosition position = new ChessPosition(r, c);
+                ChessPiece piece = board.getPiece(position);
+
+                if (piece != null && piece.getTeamColor() == teamColor && piece.getPieceType() == ChessPiece.PieceType.KING){
+                    kingPosition = position;
+                }
+            }
+        }
+
+        if (kingPosition == null) return false;
+
+        TeamColor enemy = (teamColor == TeamColor.WHITE) ? TeamColor.BLACK : TeamColor.WHITE;
+
+        for (int r = 1; r <= 8; r++) {
+            for (int c = 1; c <= 8; c++) {
+                ChessPosition position = new ChessPosition(r, c);
+                ChessPiece piece = board.getPiece(position);
+
+                if (piece != null && piece.getTeamColor() == enemy) {
+                    for (ChessMove m : piece.pieceMoves(board, position)) {
+                        if (m.getEndPosition().equals(kingPosition)) {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+        return false;
     }
 
     /**
