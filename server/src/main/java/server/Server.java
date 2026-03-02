@@ -62,7 +62,45 @@ public class Server {
                 ctx.result(new Gson().toJson(new ErrorResponse("Error: " + e.getMessage())));
             }
         });
+
+        // Login (POST /session)
+        javalin.post("/session", ctx -> {
+            try {
+                var loginRequest = new Gson().fromJson(ctx.body(), UserData.class);
+
+                AuthData auth = userService.login(
+                        loginRequest.username(),
+                        loginRequest.password()
+                );
+
+                ctx.status(200);
+                ctx.result(new Gson().toJson(auth));
+
+            } catch (DataAccessException e) {
+
+                if ("unauthorized".equals(e.getMessage())) {
+                    ctx.status(401);
+                    ctx.result(new Gson().toJson(
+                            new ErrorResponse("Error: unauthorized")
+                    ));
+                } else {
+                    ctx.status(500);
+                    ctx.result(new Gson().toJson(
+                            new ErrorResponse("Error: " + e.getMessage())
+                    ));
+                }
+
+            } catch (Exception e) {
+                ctx.status(500);
+                ctx.result(new Gson().toJson(
+                        new ErrorResponse("Error: " + e.getMessage())
+                ));
+            }
+        });
+
     }
+
+
 
     public int run(int desiredPort) {
         javalin.start(desiredPort);
