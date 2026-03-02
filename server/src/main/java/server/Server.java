@@ -98,6 +98,29 @@ public class Server {
             }
         });
 
+        // Logout (DELETE /session)
+        javalin.delete("/session", ctx -> {
+            try {
+                String authToken = ctx.header("authorization");
+                userService.logout(authToken);
+
+                ctx.status(200).result("{}");
+
+            } catch (DataAccessException e) {
+
+                if ("unauthorized".equals(e.getMessage())) {
+                    ctx.status(401);
+                    ctx.result(new Gson().toJson(new ErrorResponse("Error: unauthorized")));
+                } else {
+                    ctx.status(500);
+                    ctx.result(new Gson().toJson(new ErrorResponse("Error: " + e.getMessage())));
+                }
+
+            } catch (Exception e) {
+                ctx.status(500);
+                ctx.result(new Gson().toJson(new ErrorResponse("Error: " + e.getMessage())));
+            }
+        });
     }
 
 
