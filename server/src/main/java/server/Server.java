@@ -121,6 +121,99 @@ public class Server {
                 ctx.result(new Gson().toJson(new ErrorResponse("Error: " + e.getMessage())));
             }
         });
+
+        // List games (GET /game)
+        javalin.get("/game", ctx -> {
+            try {
+                String authToken = ctx.header("authorization");
+                var games = gameService.listGames(authToken);
+
+                ctx.status(200);
+                ctx.result(new Gson().toJson(new GamesResponse(games)));
+
+            } catch (DataAccessException e) {
+
+                if ("unauthorized".equals(e.getMessage())) {
+                    ctx.status(401);
+                    ctx.result(new Gson().toJson(new ErrorResponse("Error: unauthorized")));
+                } else {
+                    ctx.status(500);
+                    ctx.result(new Gson().toJson(new ErrorResponse("Error: " + e.getMessage())));
+                }
+
+            } catch (Exception e) {
+                ctx.status(500);
+                ctx.result(new Gson().toJson(new ErrorResponse("Error: " + e.getMessage())));
+            }
+        });
+
+        // Create game (POST /game)
+        javalin.post("/game", ctx -> {
+            try {
+                String authToken = ctx.header("authorization");
+
+                var request = new Gson().fromJson(ctx.body(), CreateGameRequest.class);
+
+                int gameID = gameService.createGame(authToken, request.gameName());
+
+                ctx.status(200);
+                ctx.result(new Gson().toJson(new CreateGameResponse(gameID)));
+
+            } catch (DataAccessException e) {
+
+                switch (e.getMessage()) {
+                    case "unauthorized" -> ctx.status(401);
+                    case "bad request" -> ctx.status(400);
+                    default -> ctx.status(500);
+                }
+
+                ctx.result(new Gson().toJson(
+                        new ErrorResponse("Error: " + e.getMessage())
+                ));
+
+            } catch (Exception e) {
+                ctx.status(500);
+                ctx.result(new Gson().toJson(
+                        new ErrorResponse("Error: " + e.getMessage())
+                ));
+            }
+        });
+
+        // Join game (PUT /game)
+        javalin.put("/game", ctx -> {
+            try {
+                String authToken = ctx.header("authorization");
+
+                var request = new Gson().fromJson(ctx.body(), JoinGameRequest.class);
+
+                gameService.joinGame(
+                        authToken,
+                        request.gameID(),
+                        request.playerColor()
+                );
+
+                ctx.status(200).result("{}");
+
+            } catch (DataAccessException e) {
+
+                switch (e.getMessage()) {
+                    case "unauthorized" -> ctx.status(401);
+                    case "bad request" -> ctx.status(400);
+                    case "already taken" -> ctx.status(403);
+                    default -> ctx.status(500);
+                }
+
+                ctx.result(new Gson().toJson(
+                        new ErrorResponse("Error: " + e.getMessage())
+                ));
+
+            } catch (Exception e) {
+                ctx.status(500);
+                ctx.result(new Gson().toJson(
+                        new ErrorResponse("Error: " + e.getMessage())
+                ));
+            }
+        });
     }
 
 
