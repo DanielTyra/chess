@@ -81,36 +81,10 @@ public class ChessPiece {
             repeatMovement(board, myPosition, directions, moves);
         } else if (piece.getPieceType() == PieceType.KNIGHT){
             int[][] directions = {{1,2}, {-1,2}, {2,1}, {2,-1}, {1,-2}, {-1,-2}, {-2,1}, {-2,-1}}; //all directions knight can move to
-            for (int[]direction: directions) { //loop through each direction
-                int r = myPosition.getRow() + direction[0];
-                int c = myPosition.getColumn() + direction[1];
-                if (r >= 1 && r <= 8 && c >= 1 && c <=8) {
-                    ChessPosition targetPosition = new ChessPosition(r, c);
-                    ChessPiece targetPiece = board.getPiece(targetPosition);
-                    if (targetPiece == null) { //if there is no piece on square add to possible moves
-                        moves.add(new ChessMove(myPosition, targetPosition, null));
-                    } else if (targetPiece.getTeamColor() != pieceColor) {
-                        //if there is an enemy on square add to possible moves but stop extra movement past
-                        moves.add(new ChessMove(myPosition, targetPosition, null));
-                    }
-                }
-            }
+            singleMove(board, myPosition, directions, moves);
         } else if (piece.getPieceType() == PieceType.KING){
             int[][] directions = {{1,0}, {-1,0}, {0,1}, {0,-1}, {1,1}, {1,-1}, {-1,1}, {-1,-1}}; //all directions king can move to
-            for (int[]direction: directions) { //loop through each direction
-                int r = myPosition.getRow() + direction[0];
-                int c = myPosition.getColumn() + direction[1];
-                if (r >= 1 && r <= 8 && c >= 1 && c <=8) {
-                    ChessPosition targetPosition = new ChessPosition(r, c);
-                    ChessPiece targetPiece = board.getPiece(targetPosition);
-                    if (targetPiece == null) { //if there is no piece on square add to possible moves
-                        moves.add(new ChessMove(myPosition, targetPosition, null));
-                    } else if (targetPiece.getTeamColor() != pieceColor) {
-                        //if there is an enemy on square add to possible moves but stop extra movement past
-                        moves.add(new ChessMove(myPosition, targetPosition, null));
-                    }
-                }
-            }
+            singleMove(board, myPosition, directions, moves);
         } else if (piece.getPieceType() == PieceType.PAWN) {
             int r = myPosition.getRow();
             int c = myPosition.getColumn();
@@ -202,6 +176,23 @@ public class ChessPiece {
             }
         }
         return moves;
+    }
+
+    private void singleMove(ChessBoard board, ChessPosition myPosition, int[][] directions, Collection<ChessMove> moves) {
+        for (int[]direction: directions) { //loop through each direction
+            int r = myPosition.getRow() + direction[0];
+            int c = myPosition.getColumn() + direction[1];
+            if (r >= 1 && r <= 8 && c >= 1 && c <=8) {
+                ChessPosition targetPosition = new ChessPosition(r, c);
+                ChessPiece targetPiece = board.getPiece(targetPosition);
+                if (targetPiece == null) { //if there is no piece on square add to possible moves
+                    moves.add(new ChessMove(myPosition, targetPosition, null));
+                } else if (targetPiece.getTeamColor() != pieceColor) {
+                    //if there is an enemy on square add to possible moves but stop extra movement past
+                    moves.add(new ChessMove(myPosition, targetPosition, null));
+                }
+            }
+        }
     }
 
     private void repeatMovement(ChessBoard board, ChessPosition myPosition, int[][] directions, Collection<ChessMove> moves) {
