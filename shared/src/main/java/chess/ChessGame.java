@@ -85,24 +85,31 @@ public class ChessGame {
                 }
             }
 
-            if (kingPosition != null) {
-                TeamColor enemy = (piece.getTeamColor() == TeamColor.WHITE) ? TeamColor.BLACK : TeamColor.WHITE;
+            if (kingPosition == null){
+                return null;
+            }
 
-                for (int r = 1; r <= 8 && !leavesKingInCheck; r++) {
-                    for (int c = 1; c <= 8 && !leavesKingInCheck; c++) {
-                        ChessPosition pos = new ChessPosition(r, c);
-                        ChessPiece enemyPiece = copy.getPiece(pos);
-                        if (enemyPiece != null && enemyPiece.getTeamColor() == enemy) {
-                            for (ChessMove enemyMove : enemyPiece.pieceMoves(copy, pos)) {
-                                if (enemyMove.getEndPosition().equals(kingPosition)) {
-                                    leavesKingInCheck = true;
-                                    break;
-                                }
-                            }
+
+            TeamColor enemy = (piece.getTeamColor() == TeamColor.WHITE) ? TeamColor.BLACK : TeamColor.WHITE;
+
+            for (int r = 1; r <= 8 && !leavesKingInCheck; r++) {
+                for (int c = 1; c <= 8 && !leavesKingInCheck; c++) {
+                    ChessPosition pos = new ChessPosition(r, c);
+                    ChessPiece enemyPiece = copy.getPiece(pos);
+
+                    if (enemyPiece == null || enemyPiece.getTeamColor() != enemy){
+                        continue;
+                    }
+
+                    for (ChessMove enemyMove : enemyPiece.pieceMoves(copy, pos)) {
+                        if (enemyMove.getEndPosition().equals(kingPosition)) {
+                            leavesKingInCheck = true;
+                            break;
                         }
                     }
                 }
             }
+
 
             if (!leavesKingInCheck) {
                 legalMoves.add(move);
@@ -414,11 +421,12 @@ public class ChessGame {
                 ChessPosition position = new ChessPosition(r, c);
                 ChessPiece piece = board.getPiece(position);
 
-                if (piece != null && piece.getTeamColor() == enemy) {
-                    for (ChessMove m : piece.pieceMoves(board, position)) {
-                        if (m.getEndPosition().equals(kingPosition)) {
-                            return true;
-                        }
+                if(piece == null || piece.getTeamColor() != enemy){
+                    continue;
+                }
+                for (ChessMove m : piece.pieceMoves(board, position)) {
+                    if (m.getEndPosition().equals(kingPosition)) {
+                        return true;
                     }
                 }
             }
