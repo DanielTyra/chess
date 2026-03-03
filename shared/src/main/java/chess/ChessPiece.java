@@ -89,7 +89,8 @@ public class ChessPiece {
                     ChessPiece targetPiece = board.getPiece(targetPosition);
                     if (targetPiece == null) { //if there is no piece on square add to possible moves
                         moves.add(new ChessMove(myPosition, targetPosition, null));
-                    } else if (targetPiece.getTeamColor() != pieceColor) { //if there is an enemy on square add to possible moves but stop extra movement past
+                    } else if (targetPiece.getTeamColor() != pieceColor) {
+                        //if there is an enemy on square add to possible moves but stop extra movement past
                         moves.add(new ChessMove(myPosition, targetPosition, null));
                     }
                 }
@@ -104,7 +105,8 @@ public class ChessPiece {
                     ChessPiece targetPiece = board.getPiece(targetPosition);
                     if (targetPiece == null) { //if there is no piece on square add to possible moves
                         moves.add(new ChessMove(myPosition, targetPosition, null));
-                    } else if (targetPiece.getTeamColor() != pieceColor) { //if there is an enemy on square add to possible moves but stop extra movement past
+                    } else if (targetPiece.getTeamColor() != pieceColor) {
+                        //if there is an enemy on square add to possible moves but stop extra movement past
                         moves.add(new ChessMove(myPosition, targetPosition, null));
                     }
                 }
@@ -211,7 +213,8 @@ public class ChessPiece {
                 ChessPiece targetPiece = board.getPiece(targetPosition);
                 if (targetPiece == null) { //if there is no piece on square add to possible moves
                     moves.add(new ChessMove(myPosition, targetPosition, null));
-                } else if (targetPiece.getTeamColor() != pieceColor) { //if there is an enemy on square add to possible moves but stop extra movement past
+                } else if (targetPiece.getTeamColor() != pieceColor) {
+                    //if there is an enemy on square add to possible moves but stop extra movement past
                     moves.add(new ChessMove(myPosition, targetPosition, null));
                     break;
                 } else if (targetPiece.getTeamColor() == pieceColor) { //if there's a teammate on square stop movement in direction
