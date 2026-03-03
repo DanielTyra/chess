@@ -16,7 +16,7 @@ public class Server {
     private final Javalin javalin;
 
     public Server() {
-        javalin = Javalin.create(config -> config.staticFiles.add("web"));
+        javalin = Javalin.create(config -> config.staticFiles.add("resources/web"));
 
         // Shared dependencies
         DataAccess dao = new MemoryDataAccess();
@@ -67,7 +67,14 @@ public class Server {
         javalin.post("/session", ctx -> {
             try {
                 var loginRequest = new Gson().fromJson(ctx.body(), UserData.class);
+                if (loginRequest == null ||
+                        loginRequest.username() == null ||
+                        loginRequest.password() == null) {
 
+                    ctx.status(400);
+                    ctx.result(new Gson().toJson(new ErrorResponse("Error: bad request")));
+                    return;
+                }
                 AuthData auth = userService.login(
                         loginRequest.username(),
                         loginRequest.password()
@@ -185,7 +192,15 @@ public class Server {
                 String authToken = ctx.header("authorization");
 
                 var request = new Gson().fromJson(ctx.body(), JoinGameRequest.class);
+                if (request == null ||
+                        request.playerColor() == null ||
+                        (!request.playerColor().equals("WHITE") &&
+                                !request.playerColor().equals("BLACK"))) {
 
+                    ctx.status(400);
+                    ctx.result(new Gson().toJson(new ErrorResponse("Error: bad request")));
+                    return;
+                }
                 gameService.joinGame(
                         authToken,
                         request.gameID(),
