@@ -110,24 +110,15 @@ public class ChessPiece {
 
                 if (r == 7) { //promotion moves and promotion captures
                     if (board.getPiece(new ChessPosition(r+1, c)) == null) {
-                        moves.add(new ChessMove(myPosition, new ChessPosition(r + 1, c), PieceType.ROOK));
-                        moves.add(new ChessMove(myPosition, new ChessPosition(r + 1, c), PieceType.BISHOP));
-                        moves.add(new ChessMove(myPosition, new ChessPosition(r + 1, c), PieceType.QUEEN));
-                        moves.add(new ChessMove(myPosition, new ChessPosition(r + 1, c), PieceType.KNIGHT));
+                        promoteMoves(moves, myPosition, r + 1, c);
                     }
                     if (c != 1 && board.getPiece(new ChessPosition(r+1, c-1)) != null
                             && (board.getPiece(new ChessPosition(r+1, c-1)).getTeamColor() == ChessGame.TeamColor.BLACK)) {
-                        moves.add(new ChessMove(myPosition, new ChessPosition(r+1, c-1), PieceType.ROOK));
-                        moves.add(new ChessMove(myPosition, new ChessPosition(r+1, c-1), PieceType.BISHOP));
-                        moves.add(new ChessMove(myPosition, new ChessPosition(r+1, c-1), PieceType.QUEEN));
-                        moves.add(new ChessMove(myPosition, new ChessPosition(r+1, c-1), PieceType.KNIGHT));
+                        promoteMoves(moves, myPosition, r + 1, c - 1);
                     }
                     if (c != 8 && board.getPiece(new ChessPosition(r+1, c+1)) != null
                             && (board.getPiece(new ChessPosition(r+1, c+1)).getTeamColor() == ChessGame.TeamColor.BLACK)) {
-                        moves.add(new ChessMove(myPosition, new ChessPosition(r+1, c+1), PieceType.ROOK));
-                        moves.add(new ChessMove(myPosition, new ChessPosition(r+1, c+1), PieceType.BISHOP));
-                        moves.add(new ChessMove(myPosition, new ChessPosition(r+1, c+1), PieceType.QUEEN));
-                        moves.add(new ChessMove(myPosition, new ChessPosition(r+1, c+1), PieceType.KNIGHT));
+                        promoteMoves(moves, myPosition, r + 1, c + 1);
                     }
                 }
             }
@@ -153,29 +144,27 @@ public class ChessPiece {
 
                 if (r == 2) { //promotion moves and promotion captures
                     if (board.getPiece(new ChessPosition(r - 1, c)) == null) {
-                        moves.add(new ChessMove(myPosition, new ChessPosition(r - 1, c), PieceType.ROOK));
-                        moves.add(new ChessMove(myPosition, new ChessPosition(r - 1, c), PieceType.BISHOP));
-                        moves.add(new ChessMove(myPosition, new ChessPosition(r - 1, c), PieceType.QUEEN));
-                        moves.add(new ChessMove(myPosition, new ChessPosition(r - 1, c), PieceType.KNIGHT));
+                        promoteMoves(moves, myPosition, r - 1, c);
                     }
                     if (c != 1 && board.getPiece(new ChessPosition(r - 1, c - 1)) != null
                             && (board.getPiece(new ChessPosition(r - 1, c - 1)).getTeamColor() == ChessGame.TeamColor.WHITE)) {
-                        moves.add(new ChessMove(myPosition, new ChessPosition(r - 1, c - 1), PieceType.ROOK));
-                        moves.add(new ChessMove(myPosition, new ChessPosition(r - 1, c - 1), PieceType.BISHOP));
-                        moves.add(new ChessMove(myPosition, new ChessPosition(r - 1, c - 1), PieceType.QUEEN));
-                        moves.add(new ChessMove(myPosition, new ChessPosition(r - 1, c - 1), PieceType.KNIGHT));
+                        promoteMoves(moves, myPosition, r - 1, c - 1);
                     }
                     if (c != 8 && board.getPiece(new ChessPosition(r - 1, c + 1)) != null
                             && (board.getPiece(new ChessPosition(r - 1, c + 1)).getTeamColor() == ChessGame.TeamColor.WHITE)) {
-                        moves.add(new ChessMove(myPosition, new ChessPosition(r - 1, c + 1), PieceType.ROOK));
-                        moves.add(new ChessMove(myPosition, new ChessPosition(r - 1, c + 1), PieceType.BISHOP));
-                        moves.add(new ChessMove(myPosition, new ChessPosition(r - 1, c + 1), PieceType.QUEEN));
-                        moves.add(new ChessMove(myPosition, new ChessPosition(r - 1, c + 1), PieceType.KNIGHT));
+                        promoteMoves(moves, myPosition, r - 1, c + 1);
                     }
                 }
             }
         }
         return moves;
+    }
+
+    private static void promoteMoves(Collection<ChessMove> moves, ChessPosition myPosition, int r, int c) {
+        moves.add(new ChessMove(myPosition, new ChessPosition(r, c), PieceType.ROOK));
+        moves.add(new ChessMove(myPosition, new ChessPosition(r, c), PieceType.BISHOP));
+        moves.add(new ChessMove(myPosition, new ChessPosition(r, c), PieceType.QUEEN));
+        moves.add(new ChessMove(myPosition, new ChessPosition(r, c), PieceType.KNIGHT));
     }
 
     private void singleMove(ChessBoard board, ChessPosition myPosition, int[][] directions, Collection<ChessMove> moves) {

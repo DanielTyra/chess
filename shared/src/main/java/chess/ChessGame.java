@@ -199,13 +199,10 @@ public class ChessGame {
                 if (p.getPieceType() == ChessPiece.PieceType.PAWN) {
                     int dir = (attackerColor == TeamColor.WHITE) ? 1 : -1;
                     int ar = r + dir;
-                    if (ar >= 1 && ar <= 8) {
-                        if (c - 1 >= 1 && square.equals(new ChessPosition(ar, c - 1))){
-                            return true;
-                        }
-                        if (c + 1 <= 8 && square.equals(new ChessPosition(ar, c + 1))){
-                            return true;
-                        }
+                    if (ar >= 1 && ar <= 8 && c - 1 >= 1 && square.equals(new ChessPosition(ar, c - 1))) {
+                        return true;
+                    } else if(ar >= 1 && ar <= 8 && c + 1 <= 8 && square.equals(new ChessPosition(ar, c + 1))){
+                        return true;
                     }
                 } else {
                     for (ChessMove m : p.pieceMoves(b, from)) {
