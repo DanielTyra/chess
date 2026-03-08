@@ -10,6 +10,7 @@ import model.AuthData;
 import model.UserData;
 import service.GameService;
 import service.UserService;
+import dataaccess.MySQLDataAccess;
 
 public class Server {
 
@@ -23,7 +24,11 @@ public class Server {
     public Server() {
         javalin = Javalin.create(config -> config.staticFiles.add("web"));
 
-        dao = new MemoryDataAccess();
+        try {
+            dao = new MySQLDataAccess();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
         userService = new UserService(dao);
         gameService = new GameService(dao);
 
