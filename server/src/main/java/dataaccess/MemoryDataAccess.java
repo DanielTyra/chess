@@ -1,33 +1,40 @@
 package dataaccess;
 
-import model.*;
 import chess.ChessGame;
+import model.AuthData;
+import model.GameData;
+import model.UserData;
+import org.mindrot.jbcrypt.BCrypt;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 public class MemoryDataAccess implements DataAccess {
 
     private final Map<String, UserData> users = new HashMap<>();
-    private final Map<Integer, GameData> games = new HashMap<>();
     private final Map<String, AuthData> auths = new HashMap<>();
+    private final Map<Integer, GameData> games = new HashMap<>();
     private int nextGameID = 1;
 
     @Override
     public void clear() {
         users.clear();
-        games.clear();
         auths.clear();
+        games.clear();
         nextGameID = 1;
     }
-
-    // USER
 
     @Override
     public void createUser(UserData user) throws DataAccessException {
         if (users.containsKey(user.username())) {
             throw new DataAccessException("already taken");
         }
-        users.put(user.username(), user);
+
+        String hashedPassword = BCrypt.hashpw(user.password(), BCrypt.gensalt());
+        UserData storedUser = new UserData(user.username(), hashedPassword, user.email());
+        users.put(user.username(), storedUser);
     }
 
     @Override
@@ -35,13 +42,11 @@ public class MemoryDataAccess implements DataAccess {
         return users.get(username);
     }
 
-    // GAME
-
     @Override
     public int createGame(String gameName) {
-        int id = nextGameID++;
-        games.put(id, new GameData(id, null, null, gameName, new ChessGame()));
-        return id;
+        int gameID = nextGameID++;
+        games.put(gameID, new GameData(gameID, null, null, gameName, new ChessGame()));
+        return gameID;
     }
 
     @Override
@@ -61,8 +66,6 @@ public class MemoryDataAccess implements DataAccess {
         }
         games.put(game.gameID(), game);
     }
-
-    // AUTH
 
     @Override
     public void createAuth(AuthData auth) {

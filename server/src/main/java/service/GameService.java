@@ -23,18 +23,20 @@ public class GameService {
     }
 
     public int createGame(String authToken, String gameName) throws DataAccessException {
-        if (dao.getAuth(authToken) == null) {
-            throw new DataAccessException("unauthorized");
-        }
 
         if (gameName == null) {
             throw new DataAccessException("bad request");
+        }
+
+        if (dao.getAuth(authToken) == null) {
+            throw new DataAccessException("unauthorized");
         }
 
         return dao.createGame(gameName);
     }
 
     public void joinGame(String authToken, int gameID, String playerColor) throws DataAccessException {
+
         AuthData auth = dao.getAuth(authToken);
         if (auth == null) {
             throw new DataAccessException("unauthorized");
@@ -45,7 +47,8 @@ public class GameService {
             throw new DataAccessException("bad request");
         }
 
-        if (playerColor.equals("WHITE")) {
+        if ("WHITE".equals(playerColor)) {
+
             if (game.whiteUsername() != null) {
                 throw new DataAccessException("already taken");
             }
@@ -57,7 +60,9 @@ public class GameService {
                     game.gameName(),
                     game.game()
             ));
-        } else if (playerColor.equals("BLACK")) {
+
+        } else if ("BLACK".equals(playerColor)) {
+
             if (game.blackUsername() != null) {
                 throw new DataAccessException("already taken");
             }
@@ -69,6 +74,7 @@ public class GameService {
                     game.gameName(),
                     game.game()
             ));
+
         } else {
             throw new DataAccessException("bad request");
         }

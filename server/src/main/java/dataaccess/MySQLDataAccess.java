@@ -154,16 +154,13 @@ public class MySQLDataAccess implements DataAccess {
 
     @Override
     public AuthData getAuth(String authToken) throws DataAccessException {
-
         String sql = "SELECT authToken, username FROM auth WHERE authToken=?";
 
         try (var conn = DatabaseManager.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
-
             stmt.setString(1, authToken);
 
             try (ResultSet rs = stmt.executeQuery()) {
-
                 if (rs.next()) {
                     return new AuthData(
                             rs.getString("authToken"),
@@ -173,7 +170,6 @@ public class MySQLDataAccess implements DataAccess {
             }
 
             return null;
-
         } catch (Exception e) {
             throw new DataAccessException("Unable to get auth");
         }

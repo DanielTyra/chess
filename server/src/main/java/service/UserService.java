@@ -30,7 +30,6 @@ public class UserService {
 
         String token = UUID.randomUUID().toString();
         AuthData auth = new AuthData(token, user.username());
-
         dao.createAuth(auth);
 
         return auth;
@@ -40,13 +39,16 @@ public class UserService {
 
         UserData user = dao.getUser(username);
 
-        if (user == null || !BCrypt.checkpw(password, user.password())) {
+        if (user == null) {
+            throw new DataAccessException("unauthorized");
+        }
+
+        if (!BCrypt.checkpw(password, user.password())) {
             throw new DataAccessException("unauthorized");
         }
 
         String token = UUID.randomUUID().toString();
         AuthData auth = new AuthData(token, username);
-
         dao.createAuth(auth);
 
         return auth;
