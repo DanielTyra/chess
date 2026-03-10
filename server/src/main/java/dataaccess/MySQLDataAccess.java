@@ -62,22 +62,20 @@ public class MySQLDataAccess implements DataAccess {
 
     @Override
     public void clear() throws DataAccessException {
+        String[] statements = {
+                "DELETE FROM auth",
+                "DELETE FROM game",
+                "DELETE FROM user"
+        };
+
         try (var conn = DatabaseManager.getConnection()) {
-
-            try (PreparedStatement stmt = conn.prepareStatement("DELETE FROM auth")) {
-                stmt.executeUpdate();
+            for (String sql : statements) {
+                try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+                    stmt.executeUpdate();
+                }
             }
-
-            try (PreparedStatement stmt = conn.prepareStatement("DELETE FROM game")) {
-                stmt.executeUpdate();
-            }
-
-            try (PreparedStatement stmt = conn.prepareStatement("DELETE FROM user")) {
-                stmt.executeUpdate();
-            }
-
         } catch (Exception e) {
-            throw new DataAccessException("Unable to clear database");
+            throw new DataAccessException("database error");
         }
     }
 
@@ -158,6 +156,7 @@ public class MySQLDataAccess implements DataAccess {
 
         try (var conn = DatabaseManager.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
+
             stmt.setString(1, authToken);
 
             try (ResultSet rs = stmt.executeQuery()) {
@@ -170,14 +169,14 @@ public class MySQLDataAccess implements DataAccess {
             }
 
             return null;
+
         } catch (Exception e) {
-            throw new DataAccessException("Unable to get auth");
+            throw new DataAccessException("database error");
         }
     }
 
     @Override
     public void deleteAuth(String authToken) throws DataAccessException {
-
         String sql = "DELETE FROM auth WHERE authToken=?";
 
         try (var conn = DatabaseManager.getConnection();
@@ -187,7 +186,7 @@ public class MySQLDataAccess implements DataAccess {
             stmt.executeUpdate();
 
         } catch (Exception e) {
-            throw new DataAccessException("Unable to delete auth");
+            throw new DataAccessException("database error");
         }
     }
 

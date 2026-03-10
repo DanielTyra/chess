@@ -9,47 +9,49 @@ import java.util.Properties;
 public class DatabaseManager {
 
     private static final String DB_PROPERTIES_FILE = "db.properties";
-    private static final Properties properties = new Properties();
-    private static boolean propertiesLoaded = false;
+    private static Properties properties = new Properties();
 
-    private static void loadProperties(Properties props) throws Exception {
+    static {
+        try {
+            new DatabaseManager().loadPropertiesFromResources();
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to load database properties", e);
+        }
+    }
+
+    private void loadProperties(Properties props) {
+        properties = new Properties();
+        properties.putAll(props);
+    }
+
+    private void loadPropertiesFromResources() throws Exception {
+        Properties props = new Properties();
         try (InputStream in = DatabaseManager.class.getClassLoader().getResourceAsStream(DB_PROPERTIES_FILE)) {
             if (in == null) {
                 throw new RuntimeException("db.properties not found");
             }
             props.load(in);
         }
-    }
-
-    private static Properties loadPropertiesFromResources() throws Exception {
-        if (!propertiesLoaded) {
-            loadProperties(properties);
-            propertiesLoaded = true;
-        }
-        return properties;
+        loadProperties(props);
     }
 
     public static Connection getConnection() throws Exception {
-        Properties props = loadPropertiesFromResources();
-
-        String host = props.getProperty("MYSQL_HOST");
-        String port = props.getProperty("MYSQL_PORT");
-        String database = props.getProperty("MYSQL_DATABASE");
-        String user = props.getProperty("MYSQL_USER");
-        String password = props.getProperty("MYSQL_PASSWORD");
+        String host = properties.getProperty("db.host");
+        String port = properties.getProperty("db.port");
+        String database = properties.getProperty("db.name");
+        String user = properties.getProperty("db.user");
+        String password = properties.getProperty("db.password");
 
         String url = String.format("jdbc:mysql://%s:%s/%s", host, port, database);
         return DriverManager.getConnection(url, user, password);
     }
 
     public static void createDatabase() throws Exception {
-        Properties props = loadPropertiesFromResources();
-
-        String host = props.getProperty("MYSQL_HOST");
-        String port = props.getProperty("MYSQL_PORT");
-        String database = props.getProperty("MYSQL_DATABASE");
-        String user = props.getProperty("MYSQL_USER");
-        String password = props.getProperty("MYSQL_PASSWORD");
+        String host = properties.getProperty("db.host");
+        String port = properties.getProperty("db.port");
+        String database = properties.getProperty("db.name");
+        String user = properties.getProperty("db.user");
+        String password = properties.getProperty("db.password");
 
         String url = String.format("jdbc:mysql://%s:%s", host, port);
 

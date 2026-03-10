@@ -55,11 +55,12 @@ public class UserService {
     }
 
     public void logout(String authToken) throws DataAccessException {
-
-        if (dao.getAuth(authToken) == null) {
+        System.out.println("logout called");
+        var auth = dao.getAuth(authToken);
+        System.out.println("auth result = " + auth);
+        if (auth == null) {
             throw new DataAccessException("unauthorized");
         }
-
         dao.deleteAuth(authToken);
     }
 }

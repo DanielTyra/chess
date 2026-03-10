@@ -197,6 +197,8 @@ public class Server {
         ctx.status(500).result(gson.toJson(new ErrorResponse("Error: " + e.getMessage())));
     }
 
+
+
     private void handleDataAccess(Context ctx, DataAccessException e) {
         String msg = e.getMessage();
 
@@ -207,7 +209,7 @@ public class Server {
         } else if ("already taken".equals(msg)) {
             alreadyTaken(ctx);
         } else {
-            ctx.status(500).result(gson.toJson(new ErrorResponse("Error: " + msg)));
+            ctx.status(500).result(gson.toJson(new ErrorResponse("Error: internal server error")));
         }
     }
 }
