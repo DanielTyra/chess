@@ -33,6 +33,7 @@ public class DatabaseManager {
         String password = props.getProperty("MYSQL_PASSWORD");
 
         String url = String.format("jdbc:mysql://%s:%s/%s", host, port, database);
+
         return DriverManager.getConnection(url, user, password);
     }
 
@@ -49,11 +50,13 @@ public class DatabaseManager {
 
         try (Connection conn = DriverManager.getConnection(url, user, password);
              PreparedStatement stmt = conn.prepareStatement("CREATE DATABASE IF NOT EXISTS " + database)) {
+
             stmt.executeUpdate();
         }
     }
 
     public static void createTables() throws Exception {
+
         try (Connection conn = getConnection()) {
 
             try (PreparedStatement stmt = conn.prepareStatement("""
