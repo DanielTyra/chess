@@ -2,7 +2,9 @@ package service;
 
 import dataaccess.DataAccess;
 import dataaccess.DataAccessException;
-import model.*;
+import model.AuthData;
+import model.UserData;
+import org.mindrot.jbcrypt.BCrypt;
 
 import java.util.UUID;
 
@@ -15,6 +17,7 @@ public class UserService {
     }
 
     public AuthData register(UserData user) throws DataAccessException {
+
         if (user.username() == null || user.password() == null || user.email() == null) {
             throw new DataAccessException("bad request");
         }
@@ -27,26 +30,30 @@ public class UserService {
 
         String token = UUID.randomUUID().toString();
         AuthData auth = new AuthData(token, user.username());
+
         dao.createAuth(auth);
 
         return auth;
     }
 
     public AuthData login(String username, String password) throws DataAccessException {
+
         UserData user = dao.getUser(username);
 
-        if (user == null || !user.password().equals(password)) {
+        if (user == null || !BCrypt.checkpw(password, user.password())) {
             throw new DataAccessException("unauthorized");
         }
 
         String token = UUID.randomUUID().toString();
         AuthData auth = new AuthData(token, username);
+
         dao.createAuth(auth);
 
         return auth;
     }
 
     public void logout(String authToken) throws DataAccessException {
+
         if (dao.getAuth(authToken) == null) {
             throw new DataAccessException("unauthorized");
         }
