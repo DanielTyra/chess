@@ -6,6 +6,7 @@ import java.util.Scanner;
 public class Repl {
     private final String serverUrl;
     private final Scanner scanner = new Scanner(System.in);
+    private final ServerFacade serverFacade;
     private boolean running = true;
     private ClientState state = ClientState.LOGGED_OUT;
     private String authToken = null;
@@ -13,6 +14,7 @@ public class Repl {
 
     public Repl(String serverUrl) {
         this.serverUrl = serverUrl;
+        this.serverFacade = new ServerFacade(serverUrl);
     }
 
     public void run() {
@@ -138,6 +140,10 @@ public class Repl {
 
     public String getServerUrl() {
         return serverUrl;
+    }
+
+    public ServerFacade getServerFacade() {
+        return serverFacade;
     }
 
     public ClientState getState() {
