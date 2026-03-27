@@ -1,7 +1,6 @@
 package client;
 
-import java.util.Locale;
-import java.util.Scanner;
+import java.util.*;
 
 public class Repl {
     private final String serverUrl;
@@ -12,6 +11,9 @@ public class Repl {
     private ClientState state = ClientState.LOGGED_OUT;
     private String authToken = null;
     private String username = null;
+
+    // 🔥 NEW: store last listed games
+    private List<GameData> lastGameList = new ArrayList<>();
 
     public Repl(String serverUrl) {
         this.serverUrl = serverUrl;
@@ -57,7 +59,7 @@ public class Repl {
         }
 
         String[] tokens = input.split("\\s+");
-        String command = tokens[0].toLowerCase(Locale.ROOT);
+        String command = tokens[0].toLowerCase();
 
         return switch (state) {
             case LOGGED_OUT -> evalLoggedOut(tokens);
@@ -68,16 +70,12 @@ public class Repl {
 
     // ---------------- LOGGED OUT ----------------
     private ClientResponse evalLoggedOut(String[] tokens) {
-        String command = tokens[0];
-
-        return switch (command) {
+        return switch (tokens[0]) {
             case "help" -> ClientResponse.success(helpText());
             case "quit", "exit" -> quit();
-
             case "register" -> handleRegister(tokens);
             case "login" -> handleLogin(tokens);
-
-            default -> ClientResponse.error("Unknown command. Type 'help' to see available commands.");
+            default -> ClientResponse.error("Unknown command.");
         };
     }
 
@@ -88,12 +86,10 @@ public class Repl {
 
         try {
             var result = serverFacade.register(tokens[1], tokens[2], tokens[3]);
-
             authToken = result.authToken();
             username = result.username();
             state = ClientState.LOGGED_IN;
-
-            return ClientResponse.success("Registered and logged in as " + username);
+            return ClientResponse.success("Registered and logged in.");
         } catch (ResponseException e) {
             return ClientResponse.error(e.getMessage());
         }
@@ -106,12 +102,10 @@ public class Repl {
 
         try {
             var result = serverFacade.login(tokens[1], tokens[2]);
-
             authToken = result.authToken();
             username = result.username();
             state = ClientState.LOGGED_IN;
-
-            return ClientResponse.success("Logged in as " + username);
+            return ClientResponse.success("Logged in.");
         } catch (ResponseException e) {
             return ClientResponse.error(e.getMessage());
         }
@@ -119,9 +113,7 @@ public class Repl {
 
     // ---------------- LOGGED IN ----------------
     private ClientResponse evalLoggedIn(String[] tokens) {
-        String command = tokens[0];
-
-        return switch (command) {
+        return switch (tokens[0]) {
             case "help" -> ClientResponse.success(helpText());
 
             case "logout" -> {
@@ -136,27 +128,66 @@ public class Repl {
                 }
             }
 
+            // 🔥 NEW COMMANDS
+            case "create" -> handleCreate(tokens);
+            case "list" -> handleList();
+
             case "quit", "exit" -> quit();
 
-            default -> ClientResponse.error("Unknown command. Type 'help' to see available commands.");
+            default -> ClientResponse.error("Unknown command.");
         };
+    }
+
+    private ClientResponse handleCreate(String[] tokens) {
+        if (tokens.length < 2) {
+            return ClientResponse.error("Usage: create <gameName>");
+        }
+
+        try {
+            var result = serverFacade.createGame(authToken, tokens[1]);
+            return ClientResponse.success("Created game with ID: " + result.gameID());
+        } catch (ResponseException e) {
+            return ClientResponse.error(e.getMessage());
+        }
+    }
+
+    private ClientResponse handleList() {
+        try {
+            var result = serverFacade.listGames(authToken);
+            lastGameList = result.games();
+
+            if (lastGameList.isEmpty()) {
+                return ClientResponse.success("No games available.");
+            }
+
+            StringBuilder output = new StringBuilder();
+            for (int i = 0; i < lastGameList.size(); i++) {
+                var g = lastGameList.get(i);
+                output.append(String.format(
+                        "%d: %s (White: %s, Black: %s)%n",
+                        i + 1,
+                        g.gameName(),
+                        g.whiteUsername(),
+                        g.blackUsername()
+                ));
+            }
+
+            return ClientResponse.success(output.toString());
+        } catch (ResponseException e) {
+            return ClientResponse.error(e.getMessage());
+        }
     }
 
     // ---------------- GAMEPLAY ----------------
     private ClientResponse evalGameplay(String[] tokens) {
-        String command = tokens[0];
-
-        return switch (command) {
+        return switch (tokens[0]) {
             case "help" -> ClientResponse.success(helpText());
-
             case "leave" -> {
                 state = ClientState.LOGGED_IN;
-                yield ClientResponse.success("Left gameplay view.");
+                yield ClientResponse.success("Left game.");
             }
-
             case "quit", "exit" -> quit();
-
-            default -> ClientResponse.error("Unknown command. Type 'help' to see available commands.");
+            default -> ClientResponse.error("Unknown command.");
         };
     }
 
@@ -168,31 +199,28 @@ public class Repl {
     private String helpText() {
         return switch (state) {
             case LOGGED_OUT -> """
-                    Prelogin commands:
-                      help
-                      login <username> <password>
-                      register <username> <password> <email>
-                      quit
+                    help
+                    login <u> <p>
+                    register <u> <p> <e>
+                    quit
                     """;
             case LOGGED_IN -> """
-                    Postlogin commands:
-                      help
-                      logout
-                      create <name>
-                      list
-                      join <id> [WHITE|BLACK]
-                      observe <id>
-                      quit
+                    help
+                    logout
+                    create <name>
+                    list
+                    join <num> [WHITE|BLACK]
+                    observe <num>
+                    quit
                     """;
             case GAMEPLAY -> """
-                    Gameplay commands:
-                      help
-                      redraw
-                      leave
-                      move <from> <to>
-                      resign
-                      highlight <square>
-                      quit
+                    help
+                    redraw
+                    leave
+                    move <from> <to>
+                    resign
+                    highlight
+                    quit
                     """;
         };
     }

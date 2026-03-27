@@ -1,35 +1,38 @@
 package client;
 
-import com.google.gson.Gson;
-
-import java.util.Map;
-
 public class ServerFacade {
     private final String serverUrl;
-    private final Gson gson = new Gson();
 
     public ServerFacade(String serverUrl) {
         this.serverUrl = serverUrl;
     }
 
+    public ServerFacade(int port) {
+        this("http://localhost:" + port);
+    }
+
     public AuthResult register(String username, String password, String email) throws ResponseException {
-        throw new ResponseException(501, "Register not implemented yet");
+        var request = new RegisterRequest(username, password, email);
+        return makeRequest("POST", "/user", request, null, AuthResult.class);
     }
 
     public AuthResult login(String username, String password) throws ResponseException {
-        throw new ResponseException(501, "Login not implemented yet");
+        var request = new LoginRequest(username, password);
+        return makeRequest("POST", "/session", request, null, AuthResult.class);
     }
 
     public void logout(String authToken) throws ResponseException {
-        throw new ResponseException(501, "Logout not implemented yet");
+        makeRequest("DELETE", "/session", null, authToken);
     }
 
+    // 🔥 NEW IMPLEMENTATIONS
     public CreateGameResult createGame(String authToken, String gameName) throws ResponseException {
-        throw new ResponseException(501, "Create game not implemented yet");
+        var request = new CreateGameRequest(gameName);
+        return makeRequest("POST", "/game", request, authToken, CreateGameResult.class);
     }
 
     public ListGamesResult listGames(String authToken) throws ResponseException {
-        throw new ResponseException(501, "List games not implemented yet");
+        return makeRequest("GET", "/game", null, authToken, ListGamesResult.class);
     }
 
     public void joinGame(String authToken, Integer gameID, String playerColor) throws ResponseException {
@@ -40,21 +43,17 @@ public class ServerFacade {
         throw new ResponseException(501, "Observe game not implemented yet");
     }
 
-    protected <T> T makeRequest(String method, String path, Object requestBody, String authToken, Class<T> responseClass)
+    public void clear() throws ResponseException {
+        makeRequest("DELETE", "/db", null, null);
+    }
+
+    private <T> T makeRequest(String method, String path, Object requestBody, String authToken, Class<T> responseClass)
             throws ResponseException {
         return HttpClientHelper.makeRequest(serverUrl, method, path, requestBody, authToken, responseClass);
     }
 
-    protected void makeRequest(String method, String path, Object requestBody, String authToken)
+    private void makeRequest(String method, String path, Object requestBody, String authToken)
             throws ResponseException {
         HttpClientHelper.makeRequest(serverUrl, method, path, requestBody, authToken, null);
-    }
-
-    protected Gson getGson() {
-        return gson;
-    }
-
-    protected Map<String, String> errorBody(String message) {
-        return Map.of("message", message);
     }
 }
