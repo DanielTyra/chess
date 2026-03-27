@@ -7,6 +7,7 @@ public class Repl {
     private final String serverUrl;
     private final Scanner scanner = new Scanner(System.in);
     private final ServerFacade serverFacade;
+
     private boolean running = true;
     private ClientState state = ClientState.LOGGED_OUT;
     private String authToken = null;
@@ -59,44 +60,102 @@ public class Repl {
         String command = tokens[0].toLowerCase(Locale.ROOT);
 
         return switch (state) {
-            case LOGGED_OUT -> evalLoggedOut(command);
-            case LOGGED_IN -> evalLoggedIn(command);
-            case GAMEPLAY -> evalGameplay(command);
+            case LOGGED_OUT -> evalLoggedOut(tokens);
+            case LOGGED_IN -> evalLoggedIn(tokens);
+            case GAMEPLAY -> evalGameplay(tokens);
         };
     }
 
-    private ClientResponse evalLoggedOut(String command) {
+    // ---------------- LOGGED OUT ----------------
+    private ClientResponse evalLoggedOut(String[] tokens) {
+        String command = tokens[0];
+
         return switch (command) {
             case "help" -> ClientResponse.success(helpText());
             case "quit", "exit" -> quit();
-            case "login" -> ClientResponse.success("Login is not wired up yet.");
-            case "register" -> ClientResponse.success("Register is not wired up yet.");
+
+            case "register" -> handleRegister(tokens);
+            case "login" -> handleLogin(tokens);
+
             default -> ClientResponse.error("Unknown command. Type 'help' to see available commands.");
         };
     }
 
-    private ClientResponse evalLoggedIn(String command) {
+    private ClientResponse handleRegister(String[] tokens) {
+        if (tokens.length < 4) {
+            return ClientResponse.error("Usage: register <username> <password> <email>");
+        }
+
+        try {
+            var result = serverFacade.register(tokens[1], tokens[2], tokens[3]);
+
+            authToken = result.authToken();
+            username = result.username();
+            state = ClientState.LOGGED_IN;
+
+            return ClientResponse.success("Registered and logged in as " + username);
+        } catch (ResponseException e) {
+            return ClientResponse.error(e.getMessage());
+        }
+    }
+
+    private ClientResponse handleLogin(String[] tokens) {
+        if (tokens.length < 3) {
+            return ClientResponse.error("Usage: login <username> <password>");
+        }
+
+        try {
+            var result = serverFacade.login(tokens[1], tokens[2]);
+
+            authToken = result.authToken();
+            username = result.username();
+            state = ClientState.LOGGED_IN;
+
+            return ClientResponse.success("Logged in as " + username);
+        } catch (ResponseException e) {
+            return ClientResponse.error(e.getMessage());
+        }
+    }
+
+    // ---------------- LOGGED IN ----------------
+    private ClientResponse evalLoggedIn(String[] tokens) {
+        String command = tokens[0];
+
         return switch (command) {
             case "help" -> ClientResponse.success(helpText());
+
             case "logout" -> {
-                authToken = null;
-                username = null;
-                state = ClientState.LOGGED_OUT;
-                yield ClientResponse.success("Logged out.");
+                try {
+                    serverFacade.logout(authToken);
+                    authToken = null;
+                    username = null;
+                    state = ClientState.LOGGED_OUT;
+                    yield ClientResponse.success("Logged out.");
+                } catch (ResponseException e) {
+                    yield ClientResponse.error(e.getMessage());
+                }
             }
+
             case "quit", "exit" -> quit();
+
             default -> ClientResponse.error("Unknown command. Type 'help' to see available commands.");
         };
     }
 
-    private ClientResponse evalGameplay(String command) {
+    // ---------------- GAMEPLAY ----------------
+    private ClientResponse evalGameplay(String[] tokens) {
+        String command = tokens[0];
+
         return switch (command) {
             case "help" -> ClientResponse.success(helpText());
+
             case "leave" -> {
                 state = ClientState.LOGGED_IN;
                 yield ClientResponse.success("Left gameplay view.");
             }
+
             case "quit", "exit" -> quit();
+
             default -> ClientResponse.error("Unknown command. Type 'help' to see available commands.");
         };
     }
@@ -110,63 +169,31 @@ public class Repl {
         return switch (state) {
             case LOGGED_OUT -> """
                     Prelogin commands:
-                      help     - Show available commands
-                      login    - Sign in to an existing account
-                      register - Create a new account
-                      quit     - Exit the program
+                      help
+                      login <username> <password>
+                      register <username> <password> <email>
+                      quit
                     """;
             case LOGGED_IN -> """
                     Postlogin commands:
-                      help      - Show available commands
-                      logout    - Sign out
-                      create    - Create a game
-                      list      - List games
-                      join      - Join a game
-                      observe   - Observe a game
-                      quit      - Exit the program
+                      help
+                      logout
+                      create <name>
+                      list
+                      join <id> [WHITE|BLACK]
+                      observe <id>
+                      quit
                     """;
             case GAMEPLAY -> """
                     Gameplay commands:
-                      help         - Show available commands
-                      redraw       - Redraw the board
-                      leave        - Leave the game view
-                      move         - Make a move
-                      resign       - Resign the game
-                      highlight    - Show legal moves for a piece
-                      quit         - Exit the program
+                      help
+                      redraw
+                      leave
+                      move <from> <to>
+                      resign
+                      highlight <square>
+                      quit
                     """;
         };
-    }
-
-    public String getServerUrl() {
-        return serverUrl;
-    }
-
-    public ServerFacade getServerFacade() {
-        return serverFacade;
-    }
-
-    public ClientState getState() {
-        return state;
-    }
-
-    public void setState(ClientState state) {
-        this.state = state;
-    }
-
-    public String getAuthToken() {
-        return authToken;
-    }
-
-    public void setAuthToken(String authToken) {
-        this.authToken = authToken;
-    }
-
-    public String getUsername() {
-        return username;
-    }
-
-    public void setUsername(String username) {
-        this.username = username;
     }
 }
