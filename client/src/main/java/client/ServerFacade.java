@@ -25,7 +25,6 @@ public class ServerFacade {
         makeRequest("DELETE", "/session", null, authToken);
     }
 
-    // 🔥 NEW IMPLEMENTATIONS
     public CreateGameResult createGame(String authToken, String gameName) throws ResponseException {
         var request = new CreateGameRequest(gameName);
         return makeRequest("POST", "/game", request, authToken, CreateGameResult.class);
@@ -35,12 +34,15 @@ public class ServerFacade {
         return makeRequest("GET", "/game", null, authToken, ListGamesResult.class);
     }
 
+    // 🔥 IMPLEMENTED
     public void joinGame(String authToken, Integer gameID, String playerColor) throws ResponseException {
-        throw new ResponseException(501, "Join game not implemented yet");
+        var request = new JoinGameRequest(playerColor, gameID);
+        makeRequest("PUT", "/game", request, authToken);
     }
 
     public void observeGame(String authToken, Integer gameID) throws ResponseException {
-        throw new ResponseException(501, "Observe game not implemented yet");
+        var request = new JoinGameRequest(null, gameID);
+        makeRequest("PUT", "/game", request, authToken);
     }
 
     public void clear() throws ResponseException {

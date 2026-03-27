@@ -131,8 +131,9 @@ public class Repl {
             // 🔥 NEW COMMANDS
             case "create" -> handleCreate(tokens);
             case "list" -> handleList();
-
             case "quit", "exit" -> quit();
+            case "join" -> handleJoin(tokens);
+            case "observe" -> handleObserve(tokens);
 
             default -> ClientResponse.error("Unknown command.");
         };
@@ -223,5 +224,56 @@ public class Repl {
                     quit
                     """;
         };
+    }
+
+    private ClientResponse handleJoin(String[] tokens) {
+        if (tokens.length < 2) {
+            return ClientResponse.error("Usage: join <number> [WHITE|BLACK]");
+        }
+
+        try {
+            int index = Integer.parseInt(tokens[1]) - 1;
+
+            if (index < 0 || index >= lastGameList.size()) {
+                return ClientResponse.error("Invalid game number.");
+            }
+
+            Integer gameID = lastGameList.get(index).gameID();
+            String color = (tokens.length >= 3) ? tokens[2].toUpperCase() : null;
+
+            serverFacade.joinGame(authToken, gameID, color);
+            state = ClientState.GAMEPLAY;
+
+            return ClientResponse.success("Joined game.");
+        } catch (NumberFormatException e) {
+            return ClientResponse.error("Game number must be a number.");
+        } catch (ResponseException e) {
+            return ClientResponse.error(e.getMessage());
+        }
+    }
+
+    private ClientResponse handleObserve(String[] tokens) {
+        if (tokens.length < 2) {
+            return ClientResponse.error("Usage: observe <number>");
+        }
+
+        try {
+            int index = Integer.parseInt(tokens[1]) - 1;
+
+            if (index < 0 || index >= lastGameList.size()) {
+                return ClientResponse.error("Invalid game number.");
+            }
+
+            Integer gameID = lastGameList.get(index).gameID();
+
+            serverFacade.observeGame(authToken, gameID);
+            state = ClientState.GAMEPLAY;
+
+            return ClientResponse.success("Observing game.");
+        } catch (NumberFormatException e) {
+            return ClientResponse.error("Game number must be a number.");
+        } catch (ResponseException e) {
+            return ClientResponse.error(e.getMessage());
+        }
     }
 }
