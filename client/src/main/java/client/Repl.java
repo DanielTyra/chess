@@ -1,19 +1,26 @@
 package client;
 
-import java.util.*;
+import chess.ChessGame;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Scanner;
 
 public class Repl {
     private final String serverUrl;
     private final Scanner scanner = new Scanner(System.in);
     private final ServerFacade serverFacade;
+    private final ChessBoardRenderer boardRenderer = new ChessBoardRenderer();
 
     private boolean running = true;
     private ClientState state = ClientState.LOGGED_OUT;
     private String authToken = null;
     private String username = null;
-
-    // 🔥 NEW: store last listed games
     private List<GameData> lastGameList = new ArrayList<>();
+
+    private Integer currentGameID = null;
+    private ChessGame.TeamColor currentPerspective = ChessGame.TeamColor.WHITE;
+    private boolean observing = false;
 
     public Repl(String serverUrl) {
         this.serverUrl = serverUrl;
@@ -68,7 +75,6 @@ public class Repl {
         };
     }
 
-    // ---------------- LOGGED OUT ----------------
     private ClientResponse evalLoggedOut(String[] tokens) {
         return switch (tokens[0]) {
             case "help" -> ClientResponse.success(helpText());
@@ -111,7 +117,6 @@ public class Repl {
         }
     }
 
-    // ---------------- LOGGED IN ----------------
     private ClientResponse evalLoggedIn(String[] tokens) {
         return switch (tokens[0]) {
             case "help" -> ClientResponse.success(helpText());
@@ -122,18 +127,19 @@ public class Repl {
                     authToken = null;
                     username = null;
                     state = ClientState.LOGGED_OUT;
+                    currentGameID = null;
+                    observing = false;
                     yield ClientResponse.success("Logged out.");
                 } catch (ResponseException e) {
                     yield ClientResponse.error(e.getMessage());
                 }
             }
 
-            // 🔥 NEW COMMANDS
             case "create" -> handleCreate(tokens);
             case "list" -> handleList();
-            case "quit", "exit" -> quit();
             case "join" -> handleJoin(tokens);
             case "observe" -> handleObserve(tokens);
+            case "quit", "exit" -> quit();
 
             default -> ClientResponse.error("Unknown command.");
         };
@@ -157,7 +163,7 @@ public class Repl {
             var result = serverFacade.listGames(authToken);
             lastGameList = result.games();
 
-            if (lastGameList.isEmpty()) {
+            if (lastGameList == null || lastGameList.isEmpty()) {
                 return ClientResponse.success("No games available.");
             }
 
@@ -179,14 +185,82 @@ public class Repl {
         }
     }
 
-    // ---------------- GAMEPLAY ----------------
+    private ClientResponse handleJoin(String[] tokens) {
+        if (tokens.length < 3) {
+            return ClientResponse.error("Usage: join <number> <WHITE|BLACK>");
+        }
+
+        try {
+            int index = Integer.parseInt(tokens[1]) - 1;
+
+            if (index < 0 || index >= lastGameList.size()) {
+                return ClientResponse.error("Invalid game number.");
+            }
+
+            String colorText = tokens[2].toUpperCase();
+            if (!colorText.equals("WHITE") && !colorText.equals("BLACK")) {
+                return ClientResponse.error("Color must be WHITE or BLACK.");
+            }
+
+            Integer gameID = lastGameList.get(index).gameID();
+            serverFacade.joinGame(authToken, gameID, colorText);
+
+            currentGameID = gameID;
+            currentPerspective = colorText.equals("BLACK")
+                    ? ChessGame.TeamColor.BLACK
+                    : ChessGame.TeamColor.WHITE;
+            observing = false;
+            state = ClientState.GAMEPLAY;
+
+            return ClientResponse.success("Joined game.\n" + boardRenderer.drawBoard(currentPerspective));
+        } catch (NumberFormatException e) {
+            return ClientResponse.error("Game number must be a number.");
+        } catch (ResponseException e) {
+            return ClientResponse.error(e.getMessage());
+        }
+    }
+
+    private ClientResponse handleObserve(String[] tokens) {
+        if (tokens.length < 2) {
+            return ClientResponse.error("Usage: observe <number>");
+        }
+
+        try {
+            int index = Integer.parseInt(tokens[1]) - 1;
+
+            if (index < 0 || index >= lastGameList.size()) {
+                return ClientResponse.error("Invalid game number.");
+            }
+
+            Integer gameID = lastGameList.get(index).gameID();
+            serverFacade.observeGame(authToken, gameID);
+
+            currentGameID = gameID;
+            currentPerspective = ChessGame.TeamColor.WHITE;
+            observing = true;
+            state = ClientState.GAMEPLAY;
+
+            return ClientResponse.success("Observing game.\n" + boardRenderer.drawBoard(currentPerspective));
+        } catch (NumberFormatException e) {
+            return ClientResponse.error("Game number must be a number.");
+        } catch (ResponseException e) {
+            return ClientResponse.error(e.getMessage());
+        }
+    }
+
     private ClientResponse evalGameplay(String[] tokens) {
         return switch (tokens[0]) {
             case "help" -> ClientResponse.success(helpText());
+
+            case "redraw" -> ClientResponse.success(boardRenderer.drawBoard(currentPerspective));
+
             case "leave" -> {
+                currentGameID = null;
+                observing = false;
                 state = ClientState.LOGGED_IN;
                 yield ClientResponse.success("Left game.");
             }
+
             case "quit", "exit" -> quit();
             default -> ClientResponse.error("Unknown command.");
         };
@@ -210,7 +284,7 @@ public class Repl {
                     logout
                     create <name>
                     list
-                    join <num> [WHITE|BLACK]
+                    join <num> <WHITE|BLACK>
                     observe <num>
                     quit
                     """;
@@ -220,60 +294,9 @@ public class Repl {
                     leave
                     move <from> <to>
                     resign
-                    highlight
+                    highlight <square>
                     quit
                     """;
         };
-    }
-
-    private ClientResponse handleJoin(String[] tokens) {
-        if (tokens.length < 2) {
-            return ClientResponse.error("Usage: join <number> [WHITE|BLACK]");
-        }
-
-        try {
-            int index = Integer.parseInt(tokens[1]) - 1;
-
-            if (index < 0 || index >= lastGameList.size()) {
-                return ClientResponse.error("Invalid game number.");
-            }
-
-            Integer gameID = lastGameList.get(index).gameID();
-            String color = (tokens.length >= 3) ? tokens[2].toUpperCase() : null;
-
-            serverFacade.joinGame(authToken, gameID, color);
-            state = ClientState.GAMEPLAY;
-
-            return ClientResponse.success("Joined game.");
-        } catch (NumberFormatException e) {
-            return ClientResponse.error("Game number must be a number.");
-        } catch (ResponseException e) {
-            return ClientResponse.error(e.getMessage());
-        }
-    }
-
-    private ClientResponse handleObserve(String[] tokens) {
-        if (tokens.length < 2) {
-            return ClientResponse.error("Usage: observe <number>");
-        }
-
-        try {
-            int index = Integer.parseInt(tokens[1]) - 1;
-
-            if (index < 0 || index >= lastGameList.size()) {
-                return ClientResponse.error("Invalid game number.");
-            }
-
-            Integer gameID = lastGameList.get(index).gameID();
-
-            serverFacade.observeGame(authToken, gameID);
-            state = ClientState.GAMEPLAY;
-
-            return ClientResponse.success("Observing game.");
-        } catch (NumberFormatException e) {
-            return ClientResponse.error("Game number must be a number.");
-        } catch (ResponseException e) {
-            return ClientResponse.error(e.getMessage());
-        }
     }
 }
