@@ -6,18 +6,8 @@ import chess.ChessPiece;
 import chess.ChessPosition;
 
 public class ChessBoardRenderer {
-    private static final String RESET = "\u001B[0m";
 
-    private static final String LIGHT_BG = "\u001B[47m";
-    private static final String DARK_BG = "\u001B[100m";
-
-    private static final String WHITE_PIECE = "\u001B[31m";
-    private static final String BLACK_PIECE = "\u001B[34m";
-
-    private static final String LABEL_BG = "\u001B[40m";
-    private static final String LABEL_FG = "\u001B[37m";
-
-    private static final String EMPTY = "   ";
+    private static final String EMPTY_TILE = EscapeSequences.EMPTY;
 
     public String drawBoard(ChessGame.TeamColor perspective) {
         ChessBoard board = new ChessBoard();
@@ -25,25 +15,45 @@ public class ChessBoardRenderer {
 
         StringBuilder out = new StringBuilder();
 
-        appendColumnLabels(out, perspective);
+        appendFileLabels(out, perspective);
 
-        if (perspective == ChessGame.TeamColor.BLACK) {
-            for (int row = 1; row <= 8; row++) {
-                appendBoardRow(out, board, row, false);
-            }
-        } else {
+        if (perspective == ChessGame.TeamColor.WHITE) {
             for (int row = 8; row >= 1; row--) {
                 appendBoardRow(out, board, row, true);
             }
+        } else {
+            for (int row = 1; row <= 8; row++) {
+                appendBoardRow(out, board, row, false);
+            }
         }
 
-        appendColumnLabels(out, perspective);
-
+        appendFileLabels(out, perspective);
         return out.toString();
     }
 
+    private void appendFileLabels(StringBuilder out, ChessGame.TeamColor perspective) {
+        out.append(EscapeSequences.SET_BG_COLOR_BLACK)
+                .append(EscapeSequences.SET_TEXT_COLOR_WHITE)
+                .append("   ");
+
+        if (perspective == ChessGame.TeamColor.WHITE) {
+            for (char file = 'a'; file <= 'h'; file++) {
+                out.append(" ").append(file).append("\u2003");
+            }
+        } else {
+            for (char file = 'h'; file >= 'a'; file--) {
+                out.append(" ").append(file).append("\u2003");
+            }
+        }
+
+        out.append("   ")
+                .append(EscapeSequences.RESET_BG_COLOR)
+                .append(EscapeSequences.RESET_TEXT_COLOR)
+                .append("\n");
+    }
+
     private void appendBoardRow(StringBuilder out, ChessBoard board, int row, boolean whitePerspective) {
-        appendRowLabel(out, row);
+        appendRankLabel(out, row);
 
         if (whitePerspective) {
             for (int col = 1; col <= 8; col++) {
@@ -55,59 +65,60 @@ public class ChessBoardRenderer {
             }
         }
 
-        appendRowLabel(out, row);
-        out.append(RESET).append(System.lineSeparator());
+        appendRankLabel(out, row);
+        out.append(EscapeSequences.RESET_BG_COLOR)
+                .append(EscapeSequences.RESET_TEXT_COLOR)
+                .append("\n");
     }
 
-    private void appendSquare(StringBuilder out, ChessBoard board, int row, int col) {
-        boolean lightSquare = (row + col) % 2 == 1;
-        String bg = lightSquare ? LIGHT_BG : DARK_BG;
-
-        ChessPiece piece = board.getPiece(new ChessPosition(row, col));
-
-        out.append(bg);
-        if (piece == null) {
-            out.append(EMPTY);
-        } else {
-            out.append(" ").append(pieceString(piece)).append(" ");
-        }
-        out.append(RESET);
-    }
-
-    private String pieceString(ChessPiece piece) {
-        String color = piece.getTeamColor() == ChessGame.TeamColor.WHITE ? WHITE_PIECE : BLACK_PIECE;
-        return color + switch (piece.getPieceType()) {
-            case KING -> "K";
-            case QUEEN -> "Q";
-            case BISHOP -> "B";
-            case KNIGHT -> "N";
-            case ROOK -> "R";
-            case PAWN -> "P";
-        } + RESET;
-    }
-
-    private void appendColumnLabels(StringBuilder out, ChessGame.TeamColor perspective) {
-        out.append(LABEL_BG).append(LABEL_FG).append("   ");
-
-        if (perspective == ChessGame.TeamColor.BLACK) {
-            for (char c = 'h'; c >= 'a'; c--) {
-                out.append(" ").append(c).append(" ");
-            }
-        } else {
-            for (char c = 'a'; c <= 'h'; c++) {
-                out.append(" ").append(c).append(" ");
-            }
-        }
-
-        out.append("   ").append(RESET).append(System.lineSeparator());
-    }
-
-    private void appendRowLabel(StringBuilder out, int row) {
-        out.append(LABEL_BG)
-                .append(LABEL_FG)
+    private void appendRankLabel(StringBuilder out, int row) {
+        out.append(EscapeSequences.SET_BG_COLOR_BLACK)
+                .append(EscapeSequences.SET_TEXT_COLOR_WHITE)
                 .append(" ")
                 .append(row)
                 .append(" ")
-                .append(RESET);
+                .append(EscapeSequences.RESET_BG_COLOR)
+                .append(EscapeSequences.RESET_TEXT_COLOR);
+    }
+
+    private void appendSquare(StringBuilder out, ChessBoard board, int row, int col) {
+        boolean lightSquare = (row + col) % 2 == 0;
+        String bgColor = lightSquare
+                ? EscapeSequences.SET_BG_COLOR_LIGHT_GREY
+                : EscapeSequences.SET_BG_COLOR_DARK_GREY;
+
+        ChessPiece piece = board.getPiece(new ChessPosition(row, col));
+
+        out.append(bgColor);
+
+        if (piece == null) {
+            out.append(EMPTY_TILE);
+        } else {
+            out.append(getPieceString(piece));
+        }
+
+        out.append(EscapeSequences.RESET_BG_COLOR)
+                .append(EscapeSequences.RESET_TEXT_COLOR);
+    }
+
+    private String getPieceString(ChessPiece piece) {
+        return switch (piece.getTeamColor()) {
+            case WHITE -> switch (piece.getPieceType()) {
+                case KING -> EscapeSequences.SET_TEXT_COLOR_BLUE + EscapeSequences.WHITE_KING;
+                case QUEEN -> EscapeSequences.SET_TEXT_COLOR_BLUE + EscapeSequences.WHITE_QUEEN;
+                case BISHOP -> EscapeSequences.SET_TEXT_COLOR_BLUE + EscapeSequences.WHITE_BISHOP;
+                case KNIGHT -> EscapeSequences.SET_TEXT_COLOR_BLUE + EscapeSequences.WHITE_KNIGHT;
+                case ROOK -> EscapeSequences.SET_TEXT_COLOR_BLUE + EscapeSequences.WHITE_ROOK;
+                case PAWN -> EscapeSequences.SET_TEXT_COLOR_BLUE + EscapeSequences.WHITE_PAWN;
+            };
+            case BLACK -> switch (piece.getPieceType()) {
+                case KING -> EscapeSequences.SET_TEXT_COLOR_RED + EscapeSequences.BLACK_KING;
+                case QUEEN -> EscapeSequences.SET_TEXT_COLOR_RED + EscapeSequences.BLACK_QUEEN;
+                case BISHOP -> EscapeSequences.SET_TEXT_COLOR_RED + EscapeSequences.BLACK_BISHOP;
+                case KNIGHT -> EscapeSequences.SET_TEXT_COLOR_RED + EscapeSequences.BLACK_KNIGHT;
+                case ROOK -> EscapeSequences.SET_TEXT_COLOR_RED + EscapeSequences.BLACK_ROOK;
+                case PAWN -> EscapeSequences.SET_TEXT_COLOR_RED + EscapeSequences.BLACK_PAWN;
+            };
+        };
     }
 }

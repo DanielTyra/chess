@@ -50,7 +50,7 @@ public class Repl {
     private void printWelcome() {
         System.out.println("♕ 240 Chess Client");
         System.out.println("Connected to " + serverUrl);
-        System.out.println("Type 'help' to get started.");
+        System.out.println("Type 'help' to begin.");
     }
 
     private void printPrompt() {
@@ -82,7 +82,7 @@ public class Repl {
             case "quit", "exit" -> quit();
             case "register" -> handleRegister(tokens);
             case "login" -> handleLogin(tokens);
-            default -> ClientResponse.error("Unknown command. Type 'help' to see available commands.");
+            default -> ClientResponse.error("Unknown command. Type 'help'.");
         };
     }
 
@@ -96,7 +96,7 @@ public class Repl {
             authToken = result.authToken();
             username = result.username();
             state = ClientState.LOGGED_IN;
-            return ClientResponse.success("Registered and logged in.");
+            return ClientResponse.success("Registered and logged in as " + username + ".");
         } catch (ResponseException e) {
             return ClientResponse.error(e.getMessage());
         }
@@ -112,7 +112,7 @@ public class Repl {
             authToken = result.authToken();
             username = result.username();
             state = ClientState.LOGGED_IN;
-            return ClientResponse.success("Logged in.");
+            return ClientResponse.success("Logged in as " + username + ".");
         } catch (ResponseException e) {
             return ClientResponse.error(e.getMessage());
         }
@@ -121,17 +121,13 @@ public class Repl {
     private ClientResponse evalLoggedIn(String command, String[] tokens) {
         return switch (command) {
             case "help" -> ClientResponse.success(helpText());
-
             case "logout" -> handleLogout(tokens);
-
             case "create" -> handleCreate(tokens);
             case "list" -> handleList(tokens);
             case "join" -> handleJoin(tokens);
             case "observe" -> handleObserve(tokens);
-
             case "quit", "exit" -> quit();
-
-            default -> ClientResponse.error("Unknown command. Type 'help' to see available commands.");
+            default -> ClientResponse.error("Unknown command. Type 'help'.");
         };
     }
 
@@ -151,17 +147,14 @@ public class Repl {
 
     private ClientResponse handleCreate(String[] tokens) {
         if (tokens.length < 2) {
-            return ClientResponse.error("Usage: create <gameName>");
+            return ClientResponse.error("Usage: create <game name>");
         }
 
         String gameName = joinTokens(tokens, 1);
-        if (gameName.isBlank()) {
-            return ClientResponse.error("Game name cannot be blank.");
-        }
 
         try {
             var result = serverFacade.createGame(authToken, gameName);
-            return ClientResponse.success("Created game with ID: " + result.gameID());
+            return ClientResponse.success("Game created (ID: " + result.gameID() + ")");
         } catch (ResponseException e) {
             return ClientResponse.error(e.getMessage());
         }
@@ -208,30 +201,26 @@ public class Repl {
 
         try {
             int index = Integer.parseInt(tokens[1]) - 1;
+
             if (index < 0 || index >= lastGameList.size()) {
                 return ClientResponse.error("Invalid game number.");
             }
 
-            String colorText = tokens[2].toUpperCase(Locale.ROOT);
-            if (!colorText.equals("WHITE") && !colorText.equals("BLACK")) {
-                return ClientResponse.error("Color must be WHITE or BLACK.");
-            }
+            String color = tokens[2].toUpperCase(Locale.ROOT);
 
             Integer gameID = lastGameList.get(index).gameID();
-            serverFacade.joinGame(authToken, gameID, colorText);
+            serverFacade.joinGame(authToken, gameID, color);
 
             currentGameID = gameID;
-            currentPerspective = colorText.equals("BLACK")
+            currentPerspective = color.equals("BLACK")
                     ? ChessGame.TeamColor.BLACK
                     : ChessGame.TeamColor.WHITE;
             observing = false;
             state = ClientState.GAMEPLAY;
 
             return ClientResponse.success("Joined game.\n" + boardRenderer.drawBoard(currentPerspective));
-        } catch (NumberFormatException e) {
-            return ClientResponse.error("Game number must be a number.");
-        } catch (ResponseException e) {
-            return ClientResponse.error(e.getMessage());
+        } catch (Exception e) {
+            return ClientResponse.error("Failed to join game.");
         }
     }
 
@@ -242,12 +231,12 @@ public class Repl {
 
         try {
             int index = Integer.parseInt(tokens[1]) - 1;
+
             if (index < 0 || index >= lastGameList.size()) {
                 return ClientResponse.error("Invalid game number.");
             }
 
             Integer gameID = lastGameList.get(index).gameID();
-            serverFacade.observeGame(authToken, gameID);
 
             currentGameID = gameID;
             currentPerspective = ChessGame.TeamColor.WHITE;
@@ -257,55 +246,23 @@ public class Repl {
             return ClientResponse.success("Observing game.\n" + boardRenderer.drawBoard(currentPerspective));
         } catch (NumberFormatException e) {
             return ClientResponse.error("Game number must be a number.");
-        } catch (ResponseException e) {
-            return ClientResponse.error(e.getMessage());
         }
     }
 
     private ClientResponse evalGameplay(String command, String[] tokens) {
         return switch (command) {
             case "help" -> ClientResponse.success(helpText());
-
-            case "redraw" -> handleRedraw(tokens);
-
-            case "leave" -> handleLeave(tokens);
-
-            case "move" -> ClientResponse.error("Move is not implemented yet.");
-            case "resign" -> ClientResponse.error("Resign is not implemented yet.");
-            case "highlight" -> ClientResponse.error("Highlight is not implemented yet.");
-
+            case "redraw" -> ClientResponse.success(boardRenderer.drawBoard(currentPerspective));
+            case "leave" -> handleLeave();
             case "quit", "exit" -> quit();
-            default -> ClientResponse.error("Unknown command. Type 'help' to see available commands.");
+            default -> ClientResponse.error("Unknown command.");
         };
     }
 
-    private ClientResponse handleRedraw(String[] tokens) {
-        if (tokens.length != 1) {
-            return ClientResponse.error("Usage: redraw");
-        }
-
-        if (currentGameID == null) {
-            return ClientResponse.error("No active game.");
-        }
-
-        return ClientResponse.success(boardRenderer.drawBoard(currentPerspective));
-    }
-
-    private ClientResponse handleLeave(String[] tokens) {
-        if (tokens.length != 1) {
-            return ClientResponse.error("Usage: leave");
-        }
-
-        if (currentGameID == null) {
-            state = ClientState.LOGGED_IN;
-            return ClientResponse.success("Left game.");
-        }
-
+    private ClientResponse handleLeave() {
         currentGameID = null;
         observing = false;
-        currentPerspective = ChessGame.TeamColor.WHITE;
         state = ClientState.LOGGED_IN;
-
         return ClientResponse.success("Left game.");
     }
 
@@ -319,54 +276,42 @@ public class Repl {
         username = null;
         lastGameList = new ArrayList<>();
         currentGameID = null;
-        currentPerspective = ChessGame.TeamColor.WHITE;
         observing = false;
         state = ClientState.LOGGED_OUT;
     }
 
-    private String joinTokens(String[] tokens, int startIndex) {
-        StringBuilder out = new StringBuilder();
-        for (int i = startIndex; i < tokens.length; i++) {
-            if (i > startIndex) {
-                out.append(" ");
-            }
-            out.append(tokens[i]);
+    private String joinTokens(String[] tokens, int start) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = start; i < tokens.length; i++) {
+            if (i > start) sb.append(" ");
+            sb.append(tokens[i]);
         }
-        return out.toString();
+        return sb.toString();
     }
 
     private String helpText() {
         return switch (state) {
             case LOGGED_OUT -> """
-                    Prelogin commands:
-                      help
-                      login <username> <password>
-                      register <username> <password> <email>
-                      quit
+                    help
+                    register <username> <password> <email>
+                    login <username> <password>
+                    quit
                     """;
             case LOGGED_IN -> """
-                    Postlogin commands:
-                      help
-                      logout
-                      create <game name>
-                      list
-                      join <number> <WHITE|BLACK>
-                      observe <number>
-                      quit
+                    help
+                    logout
+                    create <game name>
+                    list
+                    join <number> <WHITE|BLACK>
+                    observe <number>
+                    quit
                     """;
-            case GAMEPLAY -> {
-                String mode = observing ? "observing" : "playing";
-                yield """
-                        Gameplay commands:
-                          help
-                          redraw
-                          leave
-                          move <from> <to>
-                          resign
-                          highlight <square>
-                          quit
-                        Current mode: """ + mode;
-            }
+            case GAMEPLAY -> """
+                    help
+                    redraw
+                    leave
+                    quit
+                    """;
         };
     }
 }
