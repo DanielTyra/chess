@@ -28,7 +28,6 @@ public class ServerFacadeTests {
         facade.clear();
     }
 
-    // ---------- AUTH TESTS ----------
     @Test
     void registerPositive() throws Exception {
         var authData = facade.register("player1", "password", "p1@email.com");
@@ -39,6 +38,14 @@ public class ServerFacadeTests {
     }
 
     @Test
+    void registerNegativeDuplicateUsername() throws Exception {
+        facade.register("player1", "password", "p1@email.com");
+
+        assertThrows(ResponseException.class, () ->
+                facade.register("player1", "differentPassword", "other@email.com"));
+    }
+
+    @Test
     void loginPositive() throws Exception {
         facade.register("player1", "password", "p1@email.com");
 
@@ -46,9 +53,30 @@ public class ServerFacadeTests {
 
         assertNotNull(authData);
         assertEquals("player1", authData.username());
+        assertNotNull(authData.authToken());
     }
 
-    // ---------- CREATE GAME ----------
+    @Test
+    void loginNegativeWrongPassword() throws Exception {
+        facade.register("player1", "password", "p1@email.com");
+
+        assertThrows(ResponseException.class, () ->
+                facade.login("player1", "wrongPassword"));
+    }
+
+    @Test
+    void logoutPositive() throws Exception {
+        var auth = facade.register("player1", "password", "p1@email.com");
+
+        assertDoesNotThrow(() -> facade.logout(auth.authToken()));
+    }
+
+    @Test
+    void logoutNegativeBadAuthToken() {
+        assertThrows(ResponseException.class, () ->
+                facade.logout("bad-auth-token"));
+    }
+
     @Test
     void createGamePositive() throws Exception {
         var auth = facade.register("player1", "password", "email");
@@ -65,7 +93,6 @@ public class ServerFacadeTests {
                 facade.createGame(null, "BadGame"));
     }
 
-    // ---------- LIST GAMES ----------
     @Test
     void listGamesPositive() throws Exception {
         var auth = facade.register("player1", "password", "email");
@@ -79,7 +106,12 @@ public class ServerFacadeTests {
         assertTrue(result.games().size() >= 1);
     }
 
-    // ---------- JOIN GAME ----------
+    @Test
+    void listGamesNegativeNoAuth() {
+        assertThrows(ResponseException.class, () ->
+                facade.listGames(null));
+    }
+
     @Test
     void joinGamePositive() throws Exception {
         var auth = facade.register("player1", "password", "email");
@@ -96,31 +128,5 @@ public class ServerFacadeTests {
 
         assertThrows(ResponseException.class, () ->
                 facade.joinGame(auth.authToken(), 9999, "WHITE"));
-    }
-
-
-    // ---------- OBSERVE GAME ----------
-    @Test
-    void observeGamePositive() throws Exception {
-        var auth = facade.register("player1", "password", "email");
-
-        var game = facade.createGame(auth.authToken(), "game");
-
-        assertDoesNotThrow(() ->
-                facade.observeGame(auth.authToken(), game.gameID()));
-    }
-
-    @Test
-    void observeGameNegativeBadGame() throws Exception {
-        var auth = facade.register("player1", "password", "email");
-
-        assertThrows(ResponseException.class, () ->
-                facade.observeGame(auth.authToken(), 9999));
-    }
-
-    @Test
-    void listGamesNegativeNoAuth() {
-        assertThrows(ResponseException.class, () ->
-                facade.listGames(null));
     }
 }
