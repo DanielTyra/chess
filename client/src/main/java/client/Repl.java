@@ -283,7 +283,9 @@ public class Repl {
     private String joinTokens(String[] tokens, int start) {
         StringBuilder sb = new StringBuilder();
         for (int i = start; i < tokens.length; i++) {
-            if (i > start) sb.append(" ");
+            if (i > start){
+                sb.append(" ");
+            }
             sb.append(tokens[i]);
         }
         return sb.toString();

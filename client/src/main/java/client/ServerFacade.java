@@ -40,11 +40,6 @@ public class ServerFacade {
         makeRequest("PUT", "/game", request, authToken);
     }
 
-    public void observeGame(String authToken, Integer gameID) throws ResponseException {
-        var request = new JoinGameRequest(null, gameID);
-        makeRequest("PUT", "/game", request, authToken);
-    }
-
     public void clear() throws ResponseException {
         makeRequest("DELETE", "/db", null, null);
     }
