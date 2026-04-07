@@ -96,4 +96,8 @@ public class DatabaseManager {
         }
     }
 
+    public static void initializeDatabase() throws Exception {
+        createDatabase();
+        createTables();
+    }
 }
