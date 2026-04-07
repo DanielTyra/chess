@@ -3,7 +3,6 @@ package server;
 import com.google.gson.Gson;
 import dataaccess.DataAccess;
 import dataaccess.DataAccessException;
-import dataaccess.MemoryDataAccess;
 import io.javalin.Javalin;
 import io.javalin.http.Context;
 import model.AuthData;
@@ -11,6 +10,7 @@ import model.UserData;
 import service.GameService;
 import service.UserService;
 import dataaccess.MySQLDataAccess;
+import server.websocket.WebSocketHandler;
 
 public class Server {
 
@@ -20,6 +20,7 @@ public class Server {
     private final DataAccess dao;
     private final UserService userService;
     private final GameService gameService;
+    private final WebSocketHandler webSocketHandler;
 
     public Server() {
         javalin = Javalin.create(config -> config.staticFiles.add("web"));
@@ -29,13 +30,16 @@ public class Server {
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
+
         userService = new UserService(dao);
         gameService = new GameService(dao);
+        webSocketHandler = new WebSocketHandler();
 
         registerClear();
         registerUser();
         registerSession();
         registerGame();
+        registerWebSocket(); // ✅ NEW
     }
 
     public int run(int desiredPort) {
@@ -45,6 +49,13 @@ public class Server {
 
     public void stop() {
         javalin.stop();
+    }
+
+    private void registerWebSocket() {
+        javalin.ws("/ws", ws -> {
+            ws.onMessage(ctx -> webSocketHandler.onMessage(ctx));
+            ws.onClose(ctx -> webSocketHandler.onClose(ctx));
+        });
     }
 
     private void registerClear() {
@@ -75,7 +86,6 @@ public class Server {
 
     private void registerSession() {
 
-        // Login (POST /session)
         javalin.post("/session", ctx -> {
             try {
                 UserData loginRequest = gson.fromJson(ctx.body(), UserData.class);
@@ -97,7 +107,6 @@ public class Server {
             }
         });
 
-        // Logout (DELETE /session)
         javalin.delete("/session", ctx -> {
             try {
                 String authToken = ctx.header("authorization");
@@ -114,7 +123,6 @@ public class Server {
 
     private void registerGame() {
 
-        // List games (GET /game)
         javalin.get("/game", ctx -> {
             try {
                 String authToken = ctx.header("authorization");
@@ -128,7 +136,6 @@ public class Server {
             }
         });
 
-        // Create game (POST /game)
         javalin.post("/game", ctx -> {
             try {
                 String authToken = ctx.header("authorization");
@@ -149,7 +156,6 @@ public class Server {
             }
         });
 
-        // Join game (PUT /game)
         javalin.put("/game", ctx -> {
             try {
                 String authToken = ctx.header("authorization");
@@ -196,8 +202,6 @@ public class Server {
     private void serverError(Context ctx, Exception e) {
         ctx.status(500).result(gson.toJson(new ErrorResponse("Error: " + e.getMessage())));
     }
-
-
 
     private void handleDataAccess(Context ctx, DataAccessException e) {
         String msg = e.getMessage();
