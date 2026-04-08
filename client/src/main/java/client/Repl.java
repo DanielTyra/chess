@@ -213,6 +213,17 @@ public class Repl implements ServerMessageObserver {
             Integer gameID = lastGameList.get(index).gameID();
             serverFacade.joinGame(authToken, gameID, color);
 
+            // 🔥 NEW: open websocket
+            webSocket = new WebSocketFacade(serverUrl, this);
+
+            // 🔥 NEW: send CONNECT command
+            var connectCmd = new websocket.commands.UserGameCommand(
+                    websocket.commands.UserGameCommand.CommandType.CONNECT,
+                    authToken,
+                    gameID
+            );
+            webSocket.sendCommand(connectCmd);
+
             currentGameID = gameID;
             currentPerspective = color.equals("BLACK")
                     ? ChessGame.TeamColor.BLACK
@@ -220,7 +231,7 @@ public class Repl implements ServerMessageObserver {
             observing = false;
             state = ClientState.GAMEPLAY;
 
-            return ClientResponse.success("Joined game.\n" + boardRenderer.drawBoard(currentPerspective));
+            return ClientResponse.success("Joined game.");
         } catch (Exception e) {
             return ClientResponse.error("Failed to join game.");
         }
@@ -240,14 +251,27 @@ public class Repl implements ServerMessageObserver {
 
             Integer gameID = lastGameList.get(index).gameID();
 
+            // 🔥 NEW: open websocket
+            webSocket = new WebSocketFacade(serverUrl, this);
+
+            // 🔥 NEW: send CONNECT command
+            var connectCmd = new websocket.commands.UserGameCommand(
+                    websocket.commands.UserGameCommand.CommandType.CONNECT,
+                    authToken,
+                    gameID
+            );
+            webSocket.sendCommand(connectCmd);
+
             currentGameID = gameID;
             currentPerspective = ChessGame.TeamColor.WHITE;
             observing = true;
             state = ClientState.GAMEPLAY;
 
-            return ClientResponse.success("Observing game.\n" + boardRenderer.drawBoard(currentPerspective));
+            return ClientResponse.success("Observing game.");
         } catch (NumberFormatException e) {
             return ClientResponse.error("Game number must be a number.");
+        } catch (Exception e) {
+            return ClientResponse.error("Failed to observe game.");
         }
     }
 
