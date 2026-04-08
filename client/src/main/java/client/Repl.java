@@ -1,13 +1,14 @@
 package client;
 
 import chess.ChessGame;
+import websocket.messages.ServerMessage;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Scanner;
 
-public class Repl {
+public class Repl implements ServerMessageObserver {
     private final String serverUrl;
     private final Scanner scanner = new Scanner(System.in);
     private final ServerFacade serverFacade;
@@ -22,6 +23,7 @@ public class Repl {
     private Integer currentGameID = null;
     private ChessGame.TeamColor currentPerspective = ChessGame.TeamColor.WHITE;
     private boolean observing = false;
+    private WebSocketFacade webSocket;
 
     public Repl(String serverUrl) {
         this.serverUrl = serverUrl;
@@ -283,7 +285,7 @@ public class Repl {
     private String joinTokens(String[] tokens, int start) {
         StringBuilder sb = new StringBuilder();
         for (int i = start; i < tokens.length; i++) {
-            if (i > start){
+            if (i > start) {
                 sb.append(" ");
             }
             sb.append(tokens[i]);
@@ -315,5 +317,16 @@ public class Repl {
                     quit
                     """;
         };
+    }
+
+    @Override
+    public void notify(ServerMessage message) {
+        System.out.println();
+        System.out.println("Received message: " + message.getServerMessageType());
+        System.out.print("[" + state);
+        if (username != null) {
+            System.out.print(":" + username);
+        }
+        System.out.print("] >>> ");
     }
 }
