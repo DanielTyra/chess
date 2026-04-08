@@ -1,6 +1,9 @@
 package client;
 
 import chess.ChessGame;
+import websocket.messages.ErrorMessage;
+import websocket.messages.LoadGameMessage;
+import websocket.messages.NotificationMessage;
 import websocket.messages.ServerMessage;
 
 import java.util.ArrayList;
@@ -24,6 +27,7 @@ public class Repl implements ServerMessageObserver {
     private ChessGame.TeamColor currentPerspective = ChessGame.TeamColor.WHITE;
     private boolean observing = false;
     private WebSocketFacade webSocket;
+    private ChessGame currentGame = null;
 
     public Repl(String serverUrl) {
         this.serverUrl = serverUrl;
@@ -209,14 +213,11 @@ public class Repl implements ServerMessageObserver {
             }
 
             String color = tokens[2].toUpperCase(Locale.ROOT);
-
             Integer gameID = lastGameList.get(index).gameID();
+
             serverFacade.joinGame(authToken, gameID, color);
 
-            // 🔥 NEW: open websocket
             webSocket = new WebSocketFacade(serverUrl, this);
-
-            // 🔥 NEW: send CONNECT command
             var connectCmd = new websocket.commands.UserGameCommand(
                     websocket.commands.UserGameCommand.CommandType.CONNECT,
                     authToken,
@@ -251,10 +252,7 @@ public class Repl implements ServerMessageObserver {
 
             Integer gameID = lastGameList.get(index).gameID();
 
-            // 🔥 NEW: open websocket
             webSocket = new WebSocketFacade(serverUrl, this);
-
-            // 🔥 NEW: send CONNECT command
             var connectCmd = new websocket.commands.UserGameCommand(
                     websocket.commands.UserGameCommand.CommandType.CONNECT,
                     authToken,
@@ -278,15 +276,23 @@ public class Repl implements ServerMessageObserver {
     private ClientResponse evalGameplay(String command, String[] tokens) {
         return switch (command) {
             case "help" -> ClientResponse.success(helpText());
-            case "redraw" -> ClientResponse.success(boardRenderer.drawBoard(currentPerspective));
+            case "redraw" -> ClientResponse.success(redrawBoard());
             case "leave" -> handleLeave();
             case "quit", "exit" -> quit();
             default -> ClientResponse.error("Unknown command.");
         };
     }
 
+    private String redrawBoard() {
+        if (currentGame == null) {
+            return "No game loaded.";
+        }
+        return boardRenderer.drawBoard(currentGame, currentPerspective);
+    }
+
     private ClientResponse handleLeave() {
         currentGameID = null;
+        currentGame = null;
         observing = false;
         state = ClientState.LOGGED_IN;
         return ClientResponse.success("Left game.");
@@ -302,6 +308,7 @@ public class Repl implements ServerMessageObserver {
         username = null;
         lastGameList = new ArrayList<>();
         currentGameID = null;
+        currentGame = null;
         observing = false;
         state = ClientState.LOGGED_OUT;
     }
@@ -346,11 +353,23 @@ public class Repl implements ServerMessageObserver {
     @Override
     public void notify(ServerMessage message) {
         System.out.println();
-        System.out.println("Received message: " + message.getServerMessageType());
-        System.out.print("[" + state);
-        if (username != null) {
-            System.out.print(":" + username);
+
+        switch (message.getServerMessageType()) {
+            case LOAD_GAME -> {
+                LoadGameMessage loadGameMessage = (LoadGameMessage) message;
+                currentGame = loadGameMessage.getGame();
+                System.out.println(boardRenderer.drawBoard(currentGame, currentPerspective));
+            }
+            case NOTIFICATION -> {
+                NotificationMessage notificationMessage = (NotificationMessage) message;
+                System.out.println(notificationMessage.getMessage());
+            }
+            case ERROR -> {
+                ErrorMessage errorMessage = (ErrorMessage) message;
+                System.out.println(errorMessage.getErrorMessage());
+            }
         }
-        System.out.print("] >>> ");
+
+        printPrompt();
     }
 }

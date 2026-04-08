@@ -9,9 +9,8 @@ public class ChessBoardRenderer {
 
     private static final String EMPTY_TILE = EscapeSequences.EMPTY;
 
-    public String drawBoard(ChessGame.TeamColor perspective) {
-        ChessBoard board = new ChessBoard();
-        board.resetBoard();
+    public String drawBoard(ChessGame game, ChessGame.TeamColor perspective) {
+        ChessBoard board = game.getBoard();
 
         StringBuilder out = new StringBuilder();
 
