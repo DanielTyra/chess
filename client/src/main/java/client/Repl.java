@@ -1,6 +1,10 @@
 package client;
 
 import chess.ChessGame;
+import chess.ChessMove;
+import chess.ChessPosition;
+import websocket.commands.MakeMoveCommand;
+import websocket.commands.UserGameCommand;
 import websocket.messages.ErrorMessage;
 import websocket.messages.LoadGameMessage;
 import websocket.messages.NotificationMessage;
@@ -218,8 +222,8 @@ public class Repl implements ServerMessageObserver {
             serverFacade.joinGame(authToken, gameID, color);
 
             webSocket = new WebSocketFacade(serverUrl, this);
-            var connectCmd = new websocket.commands.UserGameCommand(
-                    websocket.commands.UserGameCommand.CommandType.CONNECT,
+            UserGameCommand connectCmd = new UserGameCommand(
+                    UserGameCommand.CommandType.CONNECT,
                     authToken,
                     gameID
             );
@@ -253,8 +257,8 @@ public class Repl implements ServerMessageObserver {
             Integer gameID = lastGameList.get(index).gameID();
 
             webSocket = new WebSocketFacade(serverUrl, this);
-            var connectCmd = new websocket.commands.UserGameCommand(
-                    websocket.commands.UserGameCommand.CommandType.CONNECT,
+            UserGameCommand connectCmd = new UserGameCommand(
+                    UserGameCommand.CommandType.CONNECT,
                     authToken,
                     gameID
             );
@@ -279,6 +283,7 @@ public class Repl implements ServerMessageObserver {
             case "redraw" -> ClientResponse.success(redrawBoard());
             case "leave" -> handleLeave();
             case "move" -> handleMove(tokens);
+            case "resign" -> handleResign(tokens);
             case "quit", "exit" -> quit();
             default -> ClientResponse.error("Unknown command.");
         };
@@ -291,11 +296,58 @@ public class Repl implements ServerMessageObserver {
         return boardRenderer.drawBoard(currentGame, currentPerspective);
     }
 
+    private ClientResponse handleMove(String[] tokens) {
+        if (tokens.length < 3) {
+            return ClientResponse.error("Usage: move <from> <to>");
+        }
+
+        if (webSocket == null) {
+            return ClientResponse.error("Not connected to a game.");
+        }
+
+        try {
+            ChessPosition from = parsePosition(tokens[1]);
+            ChessPosition to = parsePosition(tokens[2]);
+
+            ChessMove move = new ChessMove(from, to, null);
+
+            MakeMoveCommand cmd = new MakeMoveCommand(
+                    authToken,
+                    currentGameID,
+                    move
+            );
+
+            webSocket.sendCommand(cmd);
+
+            return ClientResponse.success("Move sent.");
+        } catch (Exception e) {
+            return ClientResponse.error("Invalid move format.");
+        }
+    }
+
+    private ChessPosition parsePosition(String input) {
+        if (input.length() != 2) {
+            throw new IllegalArgumentException();
+        }
+
+        char file = input.toLowerCase().charAt(0);
+        char rank = input.charAt(1);
+
+        int col = file - 'a' + 1;
+        int row = rank - '0';
+
+        if (col < 1 || col > 8 || row < 1 || row > 8) {
+            throw new IllegalArgumentException();
+        }
+
+        return new ChessPosition(row, col);
+    }
+
     private ClientResponse handleLeave() {
         if (webSocket != null && currentGameID != null) {
             try {
-                var leaveCmd = new websocket.commands.UserGameCommand(
-                        websocket.commands.UserGameCommand.CommandType.LEAVE,
+                UserGameCommand leaveCmd = new UserGameCommand(
+                        UserGameCommand.CommandType.LEAVE,
                         authToken,
                         currentGameID
                 );
@@ -313,6 +365,28 @@ public class Repl implements ServerMessageObserver {
         return ClientResponse.success("Left game.");
     }
 
+    private ClientResponse handleResign(String[] tokens) {
+        if (tokens.length != 1) {
+            return ClientResponse.error("Usage: resign");
+        }
+
+        if (webSocket == null || currentGameID == null) {
+            return ClientResponse.error("Not connected to a game.");
+        }
+
+        try {
+            UserGameCommand resignCmd = new UserGameCommand(
+                    UserGameCommand.CommandType.RESIGN,
+                    authToken,
+                    currentGameID
+            );
+            webSocket.sendCommand(resignCmd);
+            return ClientResponse.success("Resign request sent.");
+        } catch (Exception e) {
+            return ClientResponse.error("Failed to resign.");
+        }
+    }
+
     private ClientResponse quit() {
         running = false;
         return ClientResponse.success("Exiting...");
@@ -325,6 +399,7 @@ public class Repl implements ServerMessageObserver {
         currentGameID = null;
         currentGame = null;
         observing = false;
+        webSocket = null;
         state = ClientState.LOGGED_OUT;
     }
 
@@ -359,6 +434,8 @@ public class Repl implements ServerMessageObserver {
             case GAMEPLAY -> """
                     help
                     redraw
+                    move <from> <to>
+                    resign
                     leave
                     quit
                     """;
@@ -386,52 +463,5 @@ public class Repl implements ServerMessageObserver {
         }
 
         printPrompt();
-    }
-
-    private ClientResponse handleMove(String[] tokens) {
-        if (tokens.length < 3) {
-            return ClientResponse.error("Usage: move <from> <to>");
-        }
-
-        if (webSocket == null) {
-            return ClientResponse.error("Not connected to a game.");
-        }
-
-        try {
-            var from = parsePosition(tokens[1]);
-            var to = parsePosition(tokens[2]);
-
-            chess.ChessMove move = new chess.ChessMove(from, to, null);
-
-            var cmd = new websocket.commands.MakeMoveCommand(
-                    authToken,
-                    currentGameID,
-                    move
-            );
-
-            webSocket.sendCommand(cmd);
-
-            return ClientResponse.success("Move sent.");
-        } catch (Exception e) {
-            return ClientResponse.error("Invalid move format.");
-        }
-    }
-
-    private chess.ChessPosition parsePosition(String input) {
-        if (input.length() != 2) {
-            throw new IllegalArgumentException();
-        }
-
-        char file = input.toLowerCase().charAt(0);
-        char rank = input.charAt(1);
-
-        int col = file - 'a' + 1;
-        int row = rank - '0';
-
-        if (col < 1 || col > 8 || row < 1 || row > 8) {
-            throw new IllegalArgumentException();
-        }
-
-        return new chess.ChessPosition(row, col);
     }
 }

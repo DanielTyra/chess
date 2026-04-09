@@ -1,5 +1,7 @@
 package server.websocket;
 
+import chess.ChessGame;
+import chess.ChessPosition;
 import com.google.gson.Gson;
 import dataaccess.DataAccess;
 import dataaccess.DataAccessException;
@@ -8,12 +10,11 @@ import io.javalin.websocket.WsCloseContext;
 import io.javalin.websocket.WsMessageContext;
 import model.AuthData;
 import model.GameData;
+import websocket.commands.MakeMoveCommand;
 import websocket.commands.UserGameCommand;
 import websocket.messages.ErrorMessage;
 import websocket.messages.LoadGameMessage;
 import websocket.messages.NotificationMessage;
-import chess.ChessGame;
-import chess.ChessPosition;
 
 public class WebSocketHandler {
 
@@ -51,6 +52,7 @@ public class WebSocketHandler {
                     handleLeave(ctx, command);
                     break;
                 case RESIGN:
+                    handleResign(ctx, command);
                     break;
                 default:
                     sendError(ctx, "Error: unknown command");
@@ -67,7 +69,6 @@ public class WebSocketHandler {
 
     private void handleConnect(WsMessageContext ctx, UserGameCommand command) {
         try {
-            // Validate auth
             AuthData auth = dao.getAuth(command.getAuthToken());
             if (auth == null) {
                 sendError(ctx, "Error: unauthorized");
@@ -77,21 +78,17 @@ public class WebSocketHandler {
             String username = auth.username();
             int gameID = command.getGameID();
 
-            // Load game
             GameData gameData = dao.getGame(gameID);
             if (gameData == null) {
                 sendError(ctx, "Error: game not found");
                 return;
             }
 
-            // Add connection
             CONNECTIONS.add(username, gameID, ctx);
 
-            // Send game to this user
             LoadGameMessage loadMsg = new LoadGameMessage(gameData.game());
             ctx.send(GSON.toJson(loadMsg));
 
-            // Determine role
             String role;
             if (username.equals(gameData.whiteUsername())) {
                 role = "white";
@@ -101,7 +98,6 @@ public class WebSocketHandler {
                 role = "observer";
             }
 
-            // Notify others
             String notification;
             if (role.equals("observer")) {
                 notification = username + " joined as an observer";
@@ -119,10 +115,9 @@ public class WebSocketHandler {
 
     private void handleMakeMove(WsMessageContext ctx, String rawMessage) {
         try {
-            var moveCmd = GSON.fromJson(rawMessage, websocket.commands.MakeMoveCommand.class);
+            MakeMoveCommand moveCmd = GSON.fromJson(rawMessage, MakeMoveCommand.class);
 
-            // Validate auth
-            var auth = dao.getAuth(moveCmd.getAuthToken());
+            AuthData auth = dao.getAuth(moveCmd.getAuthToken());
             if (auth == null) {
                 sendError(ctx, "Error: unauthorized");
                 return;
@@ -131,15 +126,19 @@ public class WebSocketHandler {
             String username = auth.username();
             int gameID = moveCmd.getGameID();
 
-            var gameData = dao.getGame(gameID);
+            GameData gameData = dao.getGame(gameID);
             if (gameData == null) {
                 sendError(ctx, "Error: game not found");
                 return;
             }
 
-            var game = gameData.game();
+            if (gameData.gameOver()) {
+                sendError(ctx, "Error: game is over");
+                return;
+            }
 
-            // Determine player color
+            ChessGame game = gameData.game();
+
             ChessGame.TeamColor playerColor = null;
             if (username.equals(gameData.whiteUsername())) {
                 playerColor = ChessGame.TeamColor.WHITE;
@@ -150,47 +149,40 @@ public class WebSocketHandler {
                 return;
             }
 
-            // Check turn
-            if (game.getTeamTurn() != playerColor) {
+            if (!game.getTeamTurn().equals(playerColor)) {
                 sendError(ctx, "Error: not your turn");
                 return;
             }
 
             var move = moveCmd.getMove();
-
-            // Validate move
             var validMoves = game.validMoves(move.getStartPosition());
             if (validMoves == null || !validMoves.contains(move)) {
                 sendError(ctx, "Error: invalid move");
                 return;
             }
 
-            // Make move
             game.makeMove(move);
 
-            // Save game
-            var updatedGame = new model.GameData(
+            GameData updatedGame = new GameData(
                     gameID,
                     gameData.whiteUsername(),
                     gameData.blackUsername(),
                     gameData.gameName(),
-                    game
+                    game,
+                    gameData.gameOver()
             );
             dao.updateGame(updatedGame);
 
-            // Broadcast updated game
-            var loadMsg = new websocket.messages.LoadGameMessage(game);
+            LoadGameMessage loadMsg = new LoadGameMessage(game);
             CONNECTIONS.broadcast(gameID, GSON.toJson(loadMsg));
 
-            // Notify move
             String moveText = username + " moved " +
                     positionToString(move.getStartPosition()) + " to " +
                     positionToString(move.getEndPosition());
 
-            var note = new websocket.messages.NotificationMessage(moveText);
+            NotificationMessage note = new NotificationMessage(moveText);
             CONNECTIONS.broadcastExcept(gameID, username, GSON.toJson(note));
 
-            // Check notifications
             ChessGame.TeamColor opponent =
                     (playerColor == ChessGame.TeamColor.WHITE)
                             ? ChessGame.TeamColor.BLACK
@@ -198,14 +190,10 @@ public class WebSocketHandler {
 
             if (game.isInCheckmate(opponent)) {
                 CONNECTIONS.broadcast(gameID,
-                        GSON.toJson(new websocket.messages.NotificationMessage(
-                                opponent + " is in checkmate"
-                        )));
+                        GSON.toJson(new NotificationMessage(opponent + " is in checkmate")));
             } else if (game.isInCheck(opponent)) {
                 CONNECTIONS.broadcast(gameID,
-                        GSON.toJson(new websocket.messages.NotificationMessage(
-                                opponent + " is in check"
-                        )));
+                        GSON.toJson(new NotificationMessage(opponent + " is in check")));
             }
 
         } catch (Exception e) {
@@ -213,19 +201,9 @@ public class WebSocketHandler {
         }
     }
 
-    private String positionToString(chess.ChessPosition pos) {
-        char file = (char) ('a' + pos.getColumn() - 1);
-        int rank = pos.getRow();
-        return "" + file + rank;
-    }
-
-    private void sendError(WsMessageContext ctx, String errorText) {
-        ctx.send(GSON.toJson(new ErrorMessage(errorText)));
-    }
-
     private void handleLeave(WsMessageContext ctx, UserGameCommand command) {
         try {
-            var auth = dao.getAuth(command.getAuthToken());
+            AuthData auth = dao.getAuth(command.getAuthToken());
             if (auth == null) {
                 sendError(ctx, "Error: unauthorized");
                 return;
@@ -234,7 +212,7 @@ public class WebSocketHandler {
             String username = auth.username();
             int gameID = command.getGameID();
 
-            var gameData = dao.getGame(gameID);
+            GameData gameData = dao.getGame(gameID);
             if (gameData == null) {
                 sendError(ctx, "Error: game not found");
                 return;
@@ -242,33 +220,84 @@ public class WebSocketHandler {
 
             boolean wasWhite = username.equals(gameData.whiteUsername());
             boolean wasBlack = username.equals(gameData.blackUsername());
-            boolean wasObserver = !wasWhite && !wasBlack;
 
             if (wasWhite || wasBlack) {
-                var updatedGame = new model.GameData(
+                GameData updatedGame = new GameData(
                         gameID,
                         wasWhite ? null : gameData.whiteUsername(),
                         wasBlack ? null : gameData.blackUsername(),
                         gameData.gameName(),
-                        gameData.game()
+                        gameData.game(),
+                        gameData.gameOver()
                 );
                 dao.updateGame(updatedGame);
             }
 
             CONNECTIONS.remove(username, gameID);
 
-            String message;
-            if (wasObserver) {
-                message = username + " left the game";
-            } else {
-                message = username + " left the game";
-            }
-
-            var note = new websocket.messages.NotificationMessage(message);
+            NotificationMessage note = new NotificationMessage(username + " left the game");
             CONNECTIONS.broadcast(gameID, GSON.toJson(note));
 
         } catch (Exception e) {
             sendError(ctx, "Error: " + e.getMessage());
         }
+    }
+
+    private void handleResign(WsMessageContext ctx, UserGameCommand command) {
+        try {
+            AuthData auth = dao.getAuth(command.getAuthToken());
+            if (auth == null) {
+                sendError(ctx, "Error: unauthorized");
+                return;
+            }
+
+            String username = auth.username();
+            int gameID = command.getGameID();
+
+            GameData gameData = dao.getGame(gameID);
+            if (gameData == null) {
+                sendError(ctx, "Error: game not found");
+                return;
+            }
+
+            if (gameData.gameOver()) {
+                sendError(ctx, "Error: game is already over");
+                return;
+            }
+
+            boolean isWhite = username.equals(gameData.whiteUsername());
+            boolean isBlack = username.equals(gameData.blackUsername());
+
+            if (!isWhite && !isBlack) {
+                sendError(ctx, "Error: observers cannot resign");
+                return;
+            }
+
+            GameData updatedGame = new GameData(
+                    gameID,
+                    gameData.whiteUsername(),
+                    gameData.blackUsername(),
+                    gameData.gameName(),
+                    gameData.game(),
+                    true
+            );
+            dao.updateGame(updatedGame);
+
+            NotificationMessage note = new NotificationMessage(username + " resigned the game");
+            CONNECTIONS.broadcast(gameID, GSON.toJson(note));
+
+        } catch (Exception e) {
+            sendError(ctx, "Error: " + e.getMessage());
+        }
+    }
+
+    private void sendError(WsMessageContext ctx, String errorText) {
+        ctx.send(GSON.toJson(new ErrorMessage(errorText)));
+    }
+
+    private String positionToString(ChessPosition pos) {
+        char file = (char) ('a' + pos.getColumn() - 1);
+        int rank = pos.getRow();
+        return "" + file + rank;
     }
 }
