@@ -12,6 +12,8 @@ import websocket.commands.UserGameCommand;
 import websocket.messages.ErrorMessage;
 import websocket.messages.LoadGameMessage;
 import websocket.messages.NotificationMessage;
+import chess.ChessGame;
+import chess.ChessPosition;
 
 public class WebSocketHandler {
 
@@ -43,6 +45,7 @@ public class WebSocketHandler {
                     handleConnect(ctx, command);
                     break;
                 case MAKE_MOVE:
+                    handleMakeMove(ctx, message);
                     break;
                 case LEAVE:
                     break;
@@ -111,6 +114,108 @@ public class WebSocketHandler {
         } catch (DataAccessException e) {
             sendError(ctx, "Error: " + e.getMessage());
         }
+    }
+
+    private void handleMakeMove(WsMessageContext ctx, String rawMessage) {
+        try {
+            var moveCmd = GSON.fromJson(rawMessage, websocket.commands.MakeMoveCommand.class);
+
+            // Validate auth
+            var auth = dao.getAuth(moveCmd.getAuthToken());
+            if (auth == null) {
+                sendError(ctx, "Error: unauthorized");
+                return;
+            }
+
+            String username = auth.username();
+            int gameID = moveCmd.getGameID();
+
+            var gameData = dao.getGame(gameID);
+            if (gameData == null) {
+                sendError(ctx, "Error: game not found");
+                return;
+            }
+
+            var game = gameData.game();
+
+            // Determine player color
+            ChessGame.TeamColor playerColor = null;
+            if (username.equals(gameData.whiteUsername())) {
+                playerColor = ChessGame.TeamColor.WHITE;
+            } else if (username.equals(gameData.blackUsername())) {
+                playerColor = ChessGame.TeamColor.BLACK;
+            } else {
+                sendError(ctx, "Error: observers cannot move");
+                return;
+            }
+
+            // Check turn
+            if (game.getTeamTurn() != playerColor) {
+                sendError(ctx, "Error: not your turn");
+                return;
+            }
+
+            var move = moveCmd.getMove();
+
+            // Validate move
+            var validMoves = game.validMoves(move.getStartPosition());
+            if (validMoves == null || !validMoves.contains(move)) {
+                sendError(ctx, "Error: invalid move");
+                return;
+            }
+
+            // Make move
+            game.makeMove(move);
+
+            // Save game
+            var updatedGame = new model.GameData(
+                    gameID,
+                    gameData.whiteUsername(),
+                    gameData.blackUsername(),
+                    gameData.gameName(),
+                    game
+            );
+            dao.updateGame(updatedGame);
+
+            // Broadcast updated game
+            var loadMsg = new websocket.messages.LoadGameMessage(game);
+            CONNECTIONS.broadcast(gameID, GSON.toJson(loadMsg));
+
+            // Notify move
+            String moveText = username + " moved " +
+                    positionToString(move.getStartPosition()) + " to " +
+                    positionToString(move.getEndPosition());
+
+            var note = new websocket.messages.NotificationMessage(moveText);
+            CONNECTIONS.broadcastExcept(gameID, username, GSON.toJson(note));
+
+            // Check notifications
+            ChessGame.TeamColor opponent =
+                    (playerColor == ChessGame.TeamColor.WHITE)
+                            ? ChessGame.TeamColor.BLACK
+                            : ChessGame.TeamColor.WHITE;
+
+            if (game.isInCheckmate(opponent)) {
+                CONNECTIONS.broadcast(gameID,
+                        GSON.toJson(new websocket.messages.NotificationMessage(
+                                opponent + " is in checkmate"
+                        )));
+            } else if (game.isInCheck(opponent)) {
+                CONNECTIONS.broadcast(gameID,
+                        GSON.toJson(new websocket.messages.NotificationMessage(
+                                opponent + " is in check"
+                        )));
+            }
+
+        } catch (Exception e) {
+            sendError(ctx, "Error: " + e.getMessage());
+        }
+    }
+
+    private String positionToString(chess.ChessPosition pos) {
+        char file = (char) ('a' + pos.getColumn() - 1);
+        int rank = pos.getRow();
+        return "" + file + rank;
     }
 
     private void sendError(WsMessageContext ctx, String errorText) {

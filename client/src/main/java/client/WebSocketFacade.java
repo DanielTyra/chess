@@ -5,8 +5,8 @@ import websocket.commands.UserGameCommand;
 
 import jakarta.websocket.ClientEndpoint;
 import jakarta.websocket.ContainerProvider;
-import jakarta.websocket.EndpointConfig;
-import jakarta.websocket.MessageHandler;
+import jakarta.websocket.OnMessage;
+import jakarta.websocket.OnOpen;
 import jakarta.websocket.Session;
 import jakarta.websocket.WebSocketContainer;
 
@@ -18,10 +18,12 @@ public class WebSocketFacade {
 
     private Session session;
     private final ServerMessageObserver observer;
+    private final ServerMessageHandler messageHandler;
 
     public WebSocketFacade(String url, ServerMessageObserver observer) throws ResponseException {
         try {
             this.observer = observer;
+            this.messageHandler = new ServerMessageHandler(observer);
 
             String wsURL = url.replace("http://", "ws://").replace("https://", "wss://") + "/ws";
             WebSocketContainer container = ContainerProvider.getWebSocketContainer();
@@ -31,11 +33,14 @@ public class WebSocketFacade {
         }
     }
 
-    @jakarta.websocket.OnOpen
-    public void onOpen(Session session, EndpointConfig config) {
+    @OnOpen
+    public void onOpen(Session session) {
         this.session = session;
-        this.session.addMessageHandler((MessageHandler.Whole<String>) message ->
-                new ServerMessageHandler(observer).onMessage(message));
+    }
+
+    @OnMessage
+    public void onMessage(String message) {
+        messageHandler.onMessage(message);
     }
 
     public void sendCommand(UserGameCommand command) throws ResponseException {
