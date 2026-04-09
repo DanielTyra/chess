@@ -61,40 +61,4 @@ public class DatabaseManager {
         }
     }
 
-    public static void createTables() throws Exception {
-        try (Connection conn = getConnection()) {
-            try (PreparedStatement stmt = conn.prepareStatement("""
-                    CREATE TABLE IF NOT EXISTS user (
-                        username VARCHAR(255) NOT NULL PRIMARY KEY,
-                        password VARCHAR(255) NOT NULL,
-                        email VARCHAR(255) NOT NULL
-                    )
-                    """)) {
-                stmt.executeUpdate();
-            }
-
-            try (PreparedStatement stmt = conn.prepareStatement("""
-                    CREATE TABLE IF NOT EXISTS auth (
-                        authToken VARCHAR(255) NOT NULL PRIMARY KEY,
-                        username VARCHAR(255) NOT NULL
-                    )
-                    """)) {
-                stmt.executeUpdate();
-            }
-
-            try (PreparedStatement stmt = conn.prepareStatement("""
-                    CREATE TABLE IF NOT EXISTS game (
-                        gameID INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-                        whiteUsername VARCHAR(255),
-                        blackUsername VARCHAR(255),
-                        gameName VARCHAR(255) NOT NULL,
-                        gameData TEXT NOT NULL
-                    )
-                    """)) {
-                stmt.executeUpdate();
-            }
-        }
-    }
-
-
 }
