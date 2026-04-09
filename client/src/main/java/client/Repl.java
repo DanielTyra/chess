@@ -278,6 +278,7 @@ public class Repl implements ServerMessageObserver {
             case "help" -> ClientResponse.success(helpText());
             case "redraw" -> ClientResponse.success(redrawBoard());
             case "leave" -> handleLeave();
+            case "move" -> handleMove(tokens);
             case "quit", "exit" -> quit();
             default -> ClientResponse.error("Unknown command.");
         };
@@ -371,5 +372,52 @@ public class Repl implements ServerMessageObserver {
         }
 
         printPrompt();
+    }
+
+    private ClientResponse handleMove(String[] tokens) {
+        if (tokens.length < 3) {
+            return ClientResponse.error("Usage: move <from> <to>");
+        }
+
+        if (webSocket == null) {
+            return ClientResponse.error("Not connected to a game.");
+        }
+
+        try {
+            var from = parsePosition(tokens[1]);
+            var to = parsePosition(tokens[2]);
+
+            chess.ChessMove move = new chess.ChessMove(from, to, null);
+
+            var cmd = new websocket.commands.MakeMoveCommand(
+                    authToken,
+                    currentGameID,
+                    move
+            );
+
+            webSocket.sendCommand(cmd);
+
+            return ClientResponse.success("Move sent.");
+        } catch (Exception e) {
+            return ClientResponse.error("Invalid move format.");
+        }
+    }
+
+    private chess.ChessPosition parsePosition(String input) {
+        if (input.length() != 2) {
+            throw new IllegalArgumentException();
+        }
+
+        char file = input.toLowerCase().charAt(0);
+        char rank = input.charAt(1);
+
+        int col = file - 'a' + 1;
+        int row = rank - '0';
+
+        if (col < 1 || col > 8 || row < 1 || row > 8) {
+            throw new IllegalArgumentException();
+        }
+
+        return new chess.ChessPosition(row, col);
     }
 }
