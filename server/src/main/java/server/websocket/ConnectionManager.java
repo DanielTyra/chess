@@ -24,14 +24,6 @@ public class ConnectionManager {
         }
     }
 
-    public Set<String> getConnectedUsers(Integer gameID) {
-        Map<String, WsContext> gameConnections = connections.get(gameID);
-        if (gameConnections == null) {
-            return Set.of();
-        }
-        return gameConnections.keySet();
-    }
-
     public void broadcast(Integer gameID, String message) {
         Map<String, WsContext> gameConnections = connections.get(gameID);
         if (gameConnections == null){
