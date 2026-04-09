@@ -48,6 +48,7 @@ public class WebSocketHandler {
                     handleMakeMove(ctx, message);
                     break;
                 case LEAVE:
+                    handleLeave(ctx, command);
                     break;
                 case RESIGN:
                     break;
@@ -220,5 +221,54 @@ public class WebSocketHandler {
 
     private void sendError(WsMessageContext ctx, String errorText) {
         ctx.send(GSON.toJson(new ErrorMessage(errorText)));
+    }
+
+    private void handleLeave(WsMessageContext ctx, UserGameCommand command) {
+        try {
+            var auth = dao.getAuth(command.getAuthToken());
+            if (auth == null) {
+                sendError(ctx, "Error: unauthorized");
+                return;
+            }
+
+            String username = auth.username();
+            int gameID = command.getGameID();
+
+            var gameData = dao.getGame(gameID);
+            if (gameData == null) {
+                sendError(ctx, "Error: game not found");
+                return;
+            }
+
+            boolean wasWhite = username.equals(gameData.whiteUsername());
+            boolean wasBlack = username.equals(gameData.blackUsername());
+            boolean wasObserver = !wasWhite && !wasBlack;
+
+            if (wasWhite || wasBlack) {
+                var updatedGame = new model.GameData(
+                        gameID,
+                        wasWhite ? null : gameData.whiteUsername(),
+                        wasBlack ? null : gameData.blackUsername(),
+                        gameData.gameName(),
+                        gameData.game()
+                );
+                dao.updateGame(updatedGame);
+            }
+
+            CONNECTIONS.remove(username, gameID);
+
+            String message;
+            if (wasObserver) {
+                message = username + " left the game";
+            } else {
+                message = username + " left the game";
+            }
+
+            var note = new websocket.messages.NotificationMessage(message);
+            CONNECTIONS.broadcast(gameID, GSON.toJson(note));
+
+        } catch (Exception e) {
+            sendError(ctx, "Error: " + e.getMessage());
+        }
     }
 }

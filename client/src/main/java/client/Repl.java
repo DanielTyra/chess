@@ -292,9 +292,23 @@ public class Repl implements ServerMessageObserver {
     }
 
     private ClientResponse handleLeave() {
+        if (webSocket != null && currentGameID != null) {
+            try {
+                var leaveCmd = new websocket.commands.UserGameCommand(
+                        websocket.commands.UserGameCommand.CommandType.LEAVE,
+                        authToken,
+                        currentGameID
+                );
+                webSocket.sendCommand(leaveCmd);
+            } catch (Exception e) {
+                return ClientResponse.error("Failed to leave game.");
+            }
+        }
+
         currentGameID = null;
         currentGame = null;
         observing = false;
+        webSocket = null;
         state = ClientState.LOGGED_IN;
         return ClientResponse.success("Left game.");
     }
