@@ -414,6 +414,13 @@ public class Repl implements ServerMessageObserver {
             return ClientResponse.error("Not connected to a game.");
         }
 
+        System.out.print("Are you sure you want to resign? (yes/no): ");
+        String confirmation = scanner.nextLine().trim().toLowerCase(Locale.ROOT);
+
+        if (!confirmation.equals("yes") && !confirmation.equals("y")) {
+            return ClientResponse.success("Resignation cancelled.");
+        }
+
         try {
             UserGameCommand resignCmd = new UserGameCommand(
                     UserGameCommand.CommandType.RESIGN,

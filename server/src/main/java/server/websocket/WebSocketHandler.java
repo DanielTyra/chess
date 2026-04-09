@@ -163,13 +163,26 @@ public class WebSocketHandler {
 
             game.makeMove(move);
 
+            ChessGame.TeamColor opponent =
+                    (playerColor == ChessGame.TeamColor.WHITE)
+                            ? ChessGame.TeamColor.BLACK
+                            : ChessGame.TeamColor.WHITE;
+
+            boolean gameOver = gameData.gameOver();
+            boolean inCheckmate = game.isInCheckmate(opponent);
+            boolean inStalemate = game.isInStalemate(opponent);
+
+            if (inCheckmate || inStalemate) {
+                gameOver = true;
+            }
+
             GameData updatedGame = new GameData(
                     gameID,
                     gameData.whiteUsername(),
                     gameData.blackUsername(),
                     gameData.gameName(),
                     game,
-                    gameData.gameOver()
+                    gameOver
             );
             dao.updateGame(updatedGame);
 
@@ -183,14 +196,12 @@ public class WebSocketHandler {
             NotificationMessage note = new NotificationMessage(moveText);
             CONNECTIONS.broadcastExcept(gameID, username, GSON.toJson(note));
 
-            ChessGame.TeamColor opponent =
-                    (playerColor == ChessGame.TeamColor.WHITE)
-                            ? ChessGame.TeamColor.BLACK
-                            : ChessGame.TeamColor.WHITE;
-
-            if (game.isInCheckmate(opponent)) {
+            if (inCheckmate) {
                 CONNECTIONS.broadcast(gameID,
                         GSON.toJson(new NotificationMessage(opponent + " is in checkmate")));
+            } else if (inStalemate) {
+                CONNECTIONS.broadcast(gameID,
+                        GSON.toJson(new NotificationMessage("Stalemate")));
             } else if (game.isInCheck(opponent)) {
                 CONNECTIONS.broadcast(gameID,
                         GSON.toJson(new NotificationMessage(opponent + " is in check")));
