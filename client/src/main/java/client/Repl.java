@@ -11,9 +11,11 @@ import websocket.messages.NotificationMessage;
 import websocket.messages.ServerMessage;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Scanner;
+import java.util.Set;
 
 public class Repl implements ServerMessageObserver {
     private final String serverUrl;
@@ -32,6 +34,7 @@ public class Repl implements ServerMessageObserver {
     private boolean observing = false;
     private WebSocketFacade webSocket;
     private ChessGame currentGame = null;
+    private Set<ChessPosition> highlightedSquares = new HashSet<>();
 
     public Repl(String serverUrl) {
         this.serverUrl = serverUrl;
@@ -234,6 +237,7 @@ public class Repl implements ServerMessageObserver {
                     ? ChessGame.TeamColor.BLACK
                     : ChessGame.TeamColor.WHITE;
             observing = false;
+            highlightedSquares.clear();
             state = ClientState.GAMEPLAY;
 
             return ClientResponse.success("Joined game.");
@@ -267,6 +271,7 @@ public class Repl implements ServerMessageObserver {
             currentGameID = gameID;
             currentPerspective = ChessGame.TeamColor.WHITE;
             observing = true;
+            highlightedSquares.clear();
             state = ClientState.GAMEPLAY;
 
             return ClientResponse.success("Observing game.");
@@ -284,6 +289,7 @@ public class Repl implements ServerMessageObserver {
             case "leave" -> handleLeave();
             case "move" -> handleMove(tokens);
             case "resign" -> handleResign(tokens);
+            case "highlight" -> handleHighlight(tokens);
             case "quit", "exit" -> quit();
             default -> ClientResponse.error("Unknown command.");
         };
@@ -293,7 +299,7 @@ public class Repl implements ServerMessageObserver {
         if (currentGame == null) {
             return "No game loaded.";
         }
-        return boardRenderer.drawBoard(currentGame, currentPerspective);
+        return boardRenderer.drawBoard(currentGame, currentPerspective, highlightedSquares);
     }
 
     private ClientResponse handleMove(String[] tokens) {
@@ -322,6 +328,39 @@ public class Repl implements ServerMessageObserver {
             return ClientResponse.success("Move sent.");
         } catch (Exception e) {
             return ClientResponse.error("Invalid move format.");
+        }
+    }
+
+    private ClientResponse handleHighlight(String[] tokens) {
+        if (tokens.length != 2) {
+            return ClientResponse.error("Usage: highlight <square>");
+        }
+
+        if (currentGame == null) {
+            return ClientResponse.error("No game loaded.");
+        }
+
+        try {
+            ChessPosition position = parsePosition(tokens[1]);
+            var piece = currentGame.getBoard().getPiece(position);
+
+            if (piece == null) {
+                return ClientResponse.error("No piece at that square.");
+            }
+
+            var validMoves = currentGame.validMoves(position);
+            highlightedSquares = new HashSet<>();
+            highlightedSquares.add(position);
+
+            if (validMoves != null) {
+                for (ChessMove move : validMoves) {
+                    highlightedSquares.add(move.getEndPosition());
+                }
+            }
+
+            return ClientResponse.success(boardRenderer.drawBoard(currentGame, currentPerspective, highlightedSquares));
+        } catch (Exception e) {
+            return ClientResponse.error("Invalid square.");
         }
     }
 
@@ -360,6 +399,7 @@ public class Repl implements ServerMessageObserver {
         currentGameID = null;
         currentGame = null;
         observing = false;
+        highlightedSquares.clear();
         webSocket = null;
         state = ClientState.LOGGED_IN;
         return ClientResponse.success("Left game.");
@@ -399,6 +439,7 @@ public class Repl implements ServerMessageObserver {
         currentGameID = null;
         currentGame = null;
         observing = false;
+        highlightedSquares.clear();
         webSocket = null;
         state = ClientState.LOGGED_OUT;
     }
@@ -435,6 +476,7 @@ public class Repl implements ServerMessageObserver {
                     help
                     redraw
                     move <from> <to>
+                    highlight <square>
                     resign
                     leave
                     quit
@@ -450,7 +492,8 @@ public class Repl implements ServerMessageObserver {
             case LOAD_GAME -> {
                 LoadGameMessage loadGameMessage = (LoadGameMessage) message;
                 currentGame = loadGameMessage.getGame();
-                System.out.println(boardRenderer.drawBoard(currentGame, currentPerspective));
+                highlightedSquares.clear();
+                System.out.println(boardRenderer.drawBoard(currentGame, currentPerspective, highlightedSquares));
             }
             case NOTIFICATION -> {
                 NotificationMessage notificationMessage = (NotificationMessage) message;

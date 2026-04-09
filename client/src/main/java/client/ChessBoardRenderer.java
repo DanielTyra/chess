@@ -5,11 +5,17 @@ import chess.ChessGame;
 import chess.ChessPiece;
 import chess.ChessPosition;
 
+import java.util.Set;
+
 public class ChessBoardRenderer {
 
     private static final String EMPTY_TILE = EscapeSequences.EMPTY;
 
     public String drawBoard(ChessGame game, ChessGame.TeamColor perspective) {
+        return drawBoard(game, perspective, Set.of());
+    }
+
+    public String drawBoard(ChessGame game, ChessGame.TeamColor perspective, Set<ChessPosition> highlightedSquares) {
         ChessBoard board = game.getBoard();
 
         StringBuilder out = new StringBuilder();
@@ -18,11 +24,11 @@ public class ChessBoardRenderer {
 
         if (perspective == ChessGame.TeamColor.WHITE) {
             for (int row = 8; row >= 1; row--) {
-                appendBoardRow(out, board, row, true);
+                appendBoardRow(out, board, row, true, highlightedSquares);
             }
         } else {
             for (int row = 1; row <= 8; row++) {
-                appendBoardRow(out, board, row, false);
+                appendBoardRow(out, board, row, false, highlightedSquares);
             }
         }
 
@@ -51,16 +57,17 @@ public class ChessBoardRenderer {
                 .append("\n");
     }
 
-    private void appendBoardRow(StringBuilder out, ChessBoard board, int row, boolean whitePerspective) {
+    private void appendBoardRow(StringBuilder out, ChessBoard board, int row, boolean whitePerspective,
+                                Set<ChessPosition> highlightedSquares) {
         appendRankLabel(out, row);
 
         if (whitePerspective) {
             for (int col = 1; col <= 8; col++) {
-                appendSquare(out, board, row, col);
+                appendSquare(out, board, row, col, highlightedSquares);
             }
         } else {
             for (int col = 8; col >= 1; col--) {
-                appendSquare(out, board, row, col);
+                appendSquare(out, board, row, col, highlightedSquares);
             }
         }
 
@@ -80,13 +87,20 @@ public class ChessBoardRenderer {
                 .append(EscapeSequences.RESET_TEXT_COLOR);
     }
 
-    private void appendSquare(StringBuilder out, ChessBoard board, int row, int col) {
-        boolean lightSquare = (row + col) % 2 == 0;
-        String bgColor = lightSquare
-                ? EscapeSequences.SET_BG_COLOR_LIGHT_GREY
-                : EscapeSequences.SET_BG_COLOR_DARK_GREY;
+    private void appendSquare(StringBuilder out, ChessBoard board, int row, int col, Set<ChessPosition> highlightedSquares) {
+        ChessPosition position = new ChessPosition(row, col);
 
-        ChessPiece piece = board.getPiece(new ChessPosition(row, col));
+        String bgColor;
+        if (highlightedSquares.contains(position)) {
+            bgColor = EscapeSequences.SET_BG_COLOR_GREEN;
+        } else {
+            boolean lightSquare = (row + col) % 2 == 0;
+            bgColor = lightSquare
+                    ? EscapeSequences.SET_BG_COLOR_LIGHT_GREY
+                    : EscapeSequences.SET_BG_COLOR_DARK_GREY;
+        }
+
+        ChessPiece piece = board.getPiece(position);
 
         out.append(bgColor);
 
