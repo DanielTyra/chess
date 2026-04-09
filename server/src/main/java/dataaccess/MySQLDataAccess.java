@@ -12,7 +12,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class MySQLDataAccess implements DataAccess {
-
     private final Gson gson = new Gson();
 
     public MySQLDataAccess() throws DataAccessException {
@@ -25,35 +24,43 @@ public class MySQLDataAccess implements DataAccess {
 
             try (var conn = DatabaseManager.getConnection()) {
                 try (var stmt = conn.createStatement()) {
+                    stmt.executeUpdate("""
+                            CREATE TABLE IF NOT EXISTS user (
+                                username VARCHAR(255) NOT NULL PRIMARY KEY,
+                                password VARCHAR(255) NOT NULL,
+                                email VARCHAR(255) NOT NULL
+                            )
+                            """);
 
                     stmt.executeUpdate("""
-                        CREATE TABLE IF NOT EXISTS user (
-                            username VARCHAR(255) NOT NULL PRIMARY KEY,
-                            password VARCHAR(255) NOT NULL,
-                            email VARCHAR(255) NOT NULL
-                        )
-                    """);
+                            CREATE TABLE IF NOT EXISTS auth (
+                                authToken VARCHAR(255) NOT NULL PRIMARY KEY,
+                                username VARCHAR(255) NOT NULL
+                            )
+                            """);
 
                     stmt.executeUpdate("""
-                        CREATE TABLE IF NOT EXISTS auth (
-                            authToken VARCHAR(255) NOT NULL PRIMARY KEY,
-                            username VARCHAR(255) NOT NULL
-                        )
-                    """);
+                            CREATE TABLE IF NOT EXISTS game (
+                                gameID INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                                whiteUsername VARCHAR(255),
+                                blackUsername VARCHAR(255),
+                                gameName VARCHAR(255) NOT NULL,
+                                gameData TEXT NOT NULL,
+                                gameOver BOOLEAN NOT NULL DEFAULT FALSE
+                            )
+                            """);
 
-                    stmt.executeUpdate("""
-                        CREATE TABLE IF NOT EXISTS game (
-                            gameID INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-                            whiteUsername VARCHAR(255),
-                            blackUsername VARCHAR(255),
-                            gameName VARCHAR(255) NOT NULL,
-                            gameData TEXT NOT NULL
-                        )
-                    """);
-
+                    // In case the table already existed before you added gameOver
+                    try {
+                        stmt.executeUpdate("""
+                                ALTER TABLE game
+                                ADD COLUMN gameOver BOOLEAN NOT NULL DEFAULT FALSE
+                                """);
+                    } catch (SQLException ignored) {
+                        // Column already exists
+                    }
                 }
             }
-
         } catch (Exception e) {
             e.printStackTrace();
             throw new DataAccessException("Unable to configure database: " + e.getMessage());
@@ -79,24 +86,17 @@ public class MySQLDataAccess implements DataAccess {
         }
     }
 
-    // USER
-
     @Override
     public void createUser(UserData user) throws DataAccessException {
-
         String sql = "INSERT INTO user (username, password, email) VALUES (?, ?, ?)";
-
         String hashedPassword = BCrypt.hashpw(user.password(), BCrypt.gensalt());
 
         try (var conn = DatabaseManager.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
-
             stmt.setString(1, user.username());
             stmt.setString(2, hashedPassword);
             stmt.setString(3, user.email());
-
             stmt.executeUpdate();
-
         } catch (Exception e) {
             throw new DataAccessException("Unable to create user");
         }
@@ -104,16 +104,13 @@ public class MySQLDataAccess implements DataAccess {
 
     @Override
     public UserData getUser(String username) throws DataAccessException {
-
         String sql = "SELECT username, password, email FROM user WHERE username=?";
 
         try (var conn = DatabaseManager.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
-
             stmt.setString(1, username);
 
             try (ResultSet rs = stmt.executeQuery()) {
-
                 if (rs.next()) {
                     return new UserData(
                             rs.getString("username"),
@@ -124,27 +121,20 @@ public class MySQLDataAccess implements DataAccess {
             }
 
             return null;
-
         } catch (Exception e) {
             throw new DataAccessException("Unable to get user");
         }
     }
 
-    // AUTH
-
     @Override
     public void createAuth(AuthData auth) throws DataAccessException {
-
         String sql = "INSERT INTO auth (authToken, username) VALUES (?, ?)";
 
         try (var conn = DatabaseManager.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
-
             stmt.setString(1, auth.authToken());
             stmt.setString(2, auth.username());
-
             stmt.executeUpdate();
-
         } catch (Exception e) {
             throw new DataAccessException("Unable to create auth");
         }
@@ -156,7 +146,6 @@ public class MySQLDataAccess implements DataAccess {
 
         try (var conn = DatabaseManager.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
-
             stmt.setString(1, authToken);
 
             try (ResultSet rs = stmt.executeQuery()) {
@@ -169,7 +158,6 @@ public class MySQLDataAccess implements DataAccess {
             }
 
             return null;
-
         } catch (Exception e) {
             throw new DataAccessException("database error");
         }
@@ -181,33 +169,30 @@ public class MySQLDataAccess implements DataAccess {
 
         try (var conn = DatabaseManager.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
-
             stmt.setString(1, authToken);
             stmt.executeUpdate();
-
         } catch (Exception e) {
             throw new DataAccessException("database error");
         }
     }
 
-    // GAME
-
     @Override
     public int createGame(String gameName) throws DataAccessException {
-
-        String sql = "INSERT INTO game (whiteUsername, blackUsername, gameName, gameData) VALUES (?, ?, ?, ?)";
+        String sql = """
+                INSERT INTO game (whiteUsername, blackUsername, gameName, gameData, gameOver)
+                VALUES (?, ?, ?, ?, ?)
+                """;
 
         ChessGame game = new ChessGame();
         String gameJson = gson.toJson(game);
 
         try (var conn = DatabaseManager.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-
             stmt.setString(1, null);
             stmt.setString(2, null);
             stmt.setString(3, gameName);
             stmt.setString(4, gameJson);
-
+            stmt.setBoolean(5, false);
             stmt.executeUpdate();
 
             try (ResultSet rs = stmt.getGeneratedKeys()) {
@@ -217,7 +202,6 @@ public class MySQLDataAccess implements DataAccess {
             }
 
             throw new DataAccessException("Unable to create game");
-
         } catch (Exception e) {
             throw new DataAccessException("Unable to create game");
         }
@@ -225,32 +209,31 @@ public class MySQLDataAccess implements DataAccess {
 
     @Override
     public GameData getGame(int gameID) throws DataAccessException {
-
-        String sql = "SELECT gameID, whiteUsername, blackUsername, gameName, gameData FROM game WHERE gameID=?";
+        String sql = """
+                SELECT gameID, whiteUsername, blackUsername, gameName, gameData, gameOver
+                FROM game
+                WHERE gameID=?
+                """;
 
         try (var conn = DatabaseManager.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
-
             stmt.setInt(1, gameID);
 
             try (ResultSet rs = stmt.executeQuery()) {
-
                 if (rs.next()) {
-
                     ChessGame game = gson.fromJson(rs.getString("gameData"), ChessGame.class);
-
                     return new GameData(
                             rs.getInt("gameID"),
                             rs.getString("whiteUsername"),
                             rs.getString("blackUsername"),
                             rs.getString("gameName"),
-                            game
+                            game,
+                            rs.getBoolean("gameOver")
                     );
                 }
             }
 
             return null;
-
         } catch (Exception e) {
             throw new DataAccessException("Unable to get game");
         }
@@ -258,8 +241,10 @@ public class MySQLDataAccess implements DataAccess {
 
     @Override
     public List<GameData> listGames() throws DataAccessException {
-
-        String sql = "SELECT gameID, whiteUsername, blackUsername, gameName, gameData FROM game";
+        String sql = """
+                SELECT gameID, whiteUsername, blackUsername, gameName, gameData, gameOver
+                FROM game
+                """;
 
         List<GameData> games = new ArrayList<>();
 
@@ -268,20 +253,18 @@ public class MySQLDataAccess implements DataAccess {
              ResultSet rs = stmt.executeQuery()) {
 
             while (rs.next()) {
-
                 ChessGame game = gson.fromJson(rs.getString("gameData"), ChessGame.class);
-
                 games.add(new GameData(
                         rs.getInt("gameID"),
                         rs.getString("whiteUsername"),
                         rs.getString("blackUsername"),
                         rs.getString("gameName"),
-                        game
+                        game,
+                        rs.getBoolean("gameOver")
                 ));
             }
 
             return games;
-
         } catch (Exception e) {
             throw new DataAccessException("Unable to list games");
         }
@@ -289,28 +272,25 @@ public class MySQLDataAccess implements DataAccess {
 
     @Override
     public void updateGame(GameData game) throws DataAccessException {
-
         String sql = """
-            UPDATE game
-            SET whiteUsername=?, blackUsername=?, gameName=?, gameData=?
-            WHERE gameID=?
-        """;
+                UPDATE game
+                SET whiteUsername=?, blackUsername=?, gameName=?, gameData=?, gameOver=?
+                WHERE gameID=?
+                """;
 
         try (var conn = DatabaseManager.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
-
             stmt.setString(1, game.whiteUsername());
             stmt.setString(2, game.blackUsername());
             stmt.setString(3, game.gameName());
             stmt.setString(4, gson.toJson(game.game()));
-            stmt.setInt(5, game.gameID());
+            stmt.setBoolean(5, game.gameOver());
+            stmt.setInt(6, game.gameID());
 
             int rows = stmt.executeUpdate();
-
             if (rows == 0) {
                 throw new DataAccessException("Game not found");
             }
-
         } catch (Exception e) {
             throw new DataAccessException("Unable to update game");
         }
