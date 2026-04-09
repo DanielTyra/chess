@@ -34,7 +34,9 @@ public class ConnectionManager {
 
     public void broadcast(Integer gameID, String message) {
         Map<String, WsContext> gameConnections = connections.get(gameID);
-        if (gameConnections == null) return;
+        if (gameConnections == null){
+            return;
+        }
 
         for (WsContext ctx : gameConnections.values()) {
             ctx.send(message);
@@ -43,7 +45,9 @@ public class ConnectionManager {
 
     public void broadcastExcept(Integer gameID, String excludedUser, String message) {
         Map<String, WsContext> gameConnections = connections.get(gameID);
-        if (gameConnections == null) return;
+        if (gameConnections == null){
+            return;
+        }
 
         for (Map.Entry<String, WsContext> entry : gameConnections.entrySet()) {
             if (!entry.getKey().equals(excludedUser)) {

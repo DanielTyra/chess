@@ -22,13 +22,11 @@ public class Repl implements ServerMessageObserver {
     private final Scanner scanner = new Scanner(System.in);
     private final ServerFacade serverFacade;
     private final ChessBoardRenderer boardRenderer = new ChessBoardRenderer();
-
     private boolean running = true;
     private ClientState state = ClientState.LOGGED_OUT;
     private String authToken = null;
     private String username = null;
     private List<GameData> lastGameList = new ArrayList<>();
-
     private Integer currentGameID = null;
     private ChessGame.TeamColor currentPerspective = ChessGame.TeamColor.WHITE;
     private boolean observing = false;
@@ -40,10 +38,8 @@ public class Repl implements ServerMessageObserver {
         this.serverUrl = serverUrl;
         this.serverFacade = new ServerFacade(serverUrl);
     }
-
     public void run() {
         printWelcome();
-
         while (running) {
             try {
                 printPrompt();
@@ -59,13 +55,11 @@ public class Repl implements ServerMessageObserver {
 
         System.out.println("Goodbye!");
     }
-
     private void printWelcome() {
         System.out.println("♕ 240 Chess Client");
         System.out.println("Connected to " + serverUrl);
         System.out.println("Type 'help' to begin.");
     }
-
     private void printPrompt() {
         System.out.printf("[%s", state);
         if (username != null) {
@@ -73,15 +67,12 @@ public class Repl implements ServerMessageObserver {
         }
         System.out.print("] >>> ");
     }
-
     public ClientResponse eval(String input) {
         if (input == null || input.isBlank()) {
             return ClientResponse.success(helpText());
         }
-
         String[] tokens = input.trim().split("\\s+");
         String command = tokens[0].toLowerCase(Locale.ROOT);
-
         return switch (state) {
             case LOGGED_OUT -> evalLoggedOut(command, tokens);
             case LOGGED_IN -> evalLoggedIn(command, tokens);
@@ -119,7 +110,6 @@ public class Repl implements ServerMessageObserver {
         if (tokens.length != 3) {
             return ClientResponse.error("Usage: login <username> <password>");
         }
-
         try {
             var result = serverFacade.login(tokens[1], tokens[2]);
             authToken = result.authToken();
@@ -148,7 +138,6 @@ public class Repl implements ServerMessageObserver {
         if (tokens.length != 1) {
             return ClientResponse.error("Usage: logout");
         }
-
         try {
             serverFacade.logout(authToken);
             clearSession();
@@ -162,9 +151,7 @@ public class Repl implements ServerMessageObserver {
         if (tokens.length < 2) {
             return ClientResponse.error("Usage: create <game name>");
         }
-
         String gameName = joinTokens(tokens, 1);
-
         try {
             var result = serverFacade.createGame(authToken, gameName);
             return ClientResponse.success("Game created (ID: " + result.gameID() + ")");
@@ -200,7 +187,6 @@ public class Repl implements ServerMessageObserver {
                         black
                 ));
             }
-
             return ClientResponse.success(output.toString().trim());
         } catch (ResponseException e) {
             return ClientResponse.error(e.getMessage());
@@ -218,12 +204,9 @@ public class Repl implements ServerMessageObserver {
             if (index < 0 || index >= lastGameList.size()) {
                 return ClientResponse.error("Invalid game number.");
             }
-
             String color = tokens[2].toUpperCase(Locale.ROOT);
             Integer gameID = lastGameList.get(index).gameID();
-
             serverFacade.joinGame(authToken, gameID, color);
-
             webSocket = new WebSocketFacade(serverUrl, this);
             UserGameCommand connectCmd = new UserGameCommand(
                     UserGameCommand.CommandType.CONNECT,
@@ -231,7 +214,6 @@ public class Repl implements ServerMessageObserver {
                     gameID
             );
             webSocket.sendCommand(connectCmd);
-
             currentGameID = gameID;
             currentPerspective = color.equals("BLACK")
                     ? ChessGame.TeamColor.BLACK
@@ -494,7 +476,6 @@ public class Repl implements ServerMessageObserver {
     @Override
     public void notify(ServerMessage message) {
         System.out.println();
-
         switch (message.getServerMessageType()) {
             case LOAD_GAME -> {
                 LoadGameMessage loadGameMessage = (LoadGameMessage) message;
@@ -511,7 +492,6 @@ public class Repl implements ServerMessageObserver {
                 System.out.println(errorMessage.getErrorMessage());
             }
         }
-
         printPrompt();
     }
 }
