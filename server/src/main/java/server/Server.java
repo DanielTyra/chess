@@ -12,6 +12,8 @@ import service.UserService;
 import dataaccess.MySQLDataAccess;
 import server.websocket.WebSocketHandler;
 
+import java.time.Duration;
+
 public class Server {
 
     private final Javalin javalin;
@@ -23,8 +25,13 @@ public class Server {
     private final WebSocketHandler webSocketHandler;
 
     public Server() {
-        javalin = Javalin.create(config -> config.staticFiles.add("web"));
+        javalin = Javalin.create(config -> {
+            config.staticFiles.add("web");
 
+            config.jetty.modifyWebSocketServletFactory(ws -> {
+                ws.setIdleTimeout(Duration.ofMinutes(3));
+            });
+        });
         try {
             dao = new MySQLDataAccess();
         } catch (Exception e) {

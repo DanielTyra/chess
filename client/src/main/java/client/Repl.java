@@ -298,18 +298,15 @@ public class Repl implements ServerMessageObserver {
             ChessPosition to = parsePosition(tokens[2]);
 
             ChessMove move = new ChessMove(from, to, null);
-
-            MakeMoveCommand cmd = new MakeMoveCommand(
-                    authToken,
-                    currentGameID,
-                    move
-            );
+            MakeMoveCommand cmd = new MakeMoveCommand(authToken, currentGameID, move);
 
             webSocket.sendCommand(cmd);
-
             return ClientResponse.success("Move sent.");
-        } catch (Exception e) {
+
+        } catch (IllegalArgumentException e) {
             return ClientResponse.error("Invalid move format.");
+        } catch (ResponseException e) {
+            return ClientResponse.error("Move failed: " + e.getMessage());
         }
     }
 
